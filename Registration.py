@@ -3,15 +3,18 @@ import psycopg2
 
 class Group:
     def __init__(self, name, edu_year, edu_program, faculty, edu_format, edu_level, cur):
+        #print(name, edu_year, edu_program, faculty, edu_format, edu_level)
         self.name = name
         self.edu_year = edu_year
         self.edu_program = edu_program
         self.faculty = faculty
         self.edu_format = edu_format
         self.edu_level = edu_level
-        cur.execute("INSERT INTO Group (name, edu_year, edu_program, faculty, edu_format, edu_level) "
-                    "VALUES (%s, %s, %s, %s, %s, %s);", vars(self)) #??????????
-
+        print(vars(self))
+        #cur.execute('INSERT INTO "Group" (name, edu_year, edu_program, faculty, edu_format, edu_level) '
+                    #'VALUES (%s, %s, %s, %s, %s, %s);', list(vars(self).values())) #??????????
+        cur.execute("""INSERT INTO "Group" (name, edu_year, edu_program, faculty, edu_format, edu_level) 
+         VALUES (2, 2, 2, 2, 2, 2);""")
 
 class Student:
     def __int__(self, name, surname, father_name, id_group, cur):
@@ -68,19 +71,27 @@ class GroupLessonGroup:
 
 def connect():
     conn = psycopg2.connect(
-        dbname='postres',
+        dbname='postgres',
         user='admin',
-        password='admin',
+        password='1234',
         host='localhost',
         port='5432'
         )
     cur = conn.cursor()
     return cur
 #подключение к БД происходит один раз в начале регистрации
-def registration(user_data, group_data): #приходит какая-то информация о пользователе
+def registration_student(user_data, group_data, is_student): #приходит какая-то информация о пользователе
     cur = connect()
-    group = Group(*group_data, cur)
-    student = Student(*user_data, cur)
+    if is_student:
+        #print(type(group_data))
+        group = Group(*group_data, cur) #
+        #student = Student(*user_data, cur)
+    #else:
+        #teacher = Lecturer(user_data, cur)
+    cur.close()
+    #connect.close()
+
+
 
     """import psycopg2
 
