@@ -5,9 +5,11 @@ import psycopg2
 #писать сразу нормально с обработкой ошибок
 #id должен обновляться автоматически
 #добавить в группу атрибут Date, который бы отражал на какие даты стоят пары
+#проверить код на соответствие задумке -> все объекты как на схеме
 class Group:
-    def __init__(self, name, edu_year, edu_program, faculty, edu_format, edu_level, cur):
+    def __init__(self, ID, name, edu_year, edu_program, faculty, edu_format, edu_level):
         #print(name, edu_year, edu_program, faculty, edu_format, edu_level)
+        self.ID = ID
         self.name = name
         self.edu_year = edu_year
         self.edu_program = edu_program
@@ -21,7 +23,8 @@ class Group:
 
 
 class Student:
-    def __init__(self, name, surname, father_name, id_group, cur):
+    def __init__(self, ID, name, surname, father_name, id_group):
+        self.ID = ID
         self.name = name
         self.surname = surname
         self.father_name = father_name
@@ -29,14 +32,16 @@ class Student:
 
 
 class Lecturer:
-    def __init__(self, name, surname, father_name, cur):
+    def __init__(self, ID, name, surname, father_name):
+        self.ID = ID
         self.name = name
         self.surname = surname
         self.father_name = father_name
 
 
 class PersonalLesson:
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student, cur):
+    def __init__(self, ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, date, id_student):
+        self.ID = ID
         self.name = name
         self.type_l = type_l
         self.building = building
@@ -45,17 +50,19 @@ class PersonalLesson:
         self.time = time
         self.week_day = week_day
         self.is_upper = is_upper
+        self.date = date
         self.id_student = id_student
 
 
 class PersonalLessonStudent:
-    def __init__(self, id_student, id_personal_lesson, cur):
+    def __init__(self, id_student, id_personal_lesson):
         self.id_student = id_student
         self.id_personal_lesson = id_personal_lesson
 
 
 class GroupLesson:
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group, cur):
+    def __init__(self, ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, date, id_group):
+        self.ID = ID
         self.name = name
         self.type_l = type_l
         self.building = building
@@ -64,14 +71,20 @@ class GroupLesson:
         self.time = time
         self.week_day = week_day
         self.is_upper = is_upper
+        self.date = date
         self.id_group = id_group
 
 
 class GroupLessonGroup:
-    def __init__(self, id_group_lesson, id_group, cur):
+    def __init__(self, id_group_lesson, id_group):
         self.id_group_lesson = id_group_lesson
         self.id_group = id_group
 
+
+class LecturerGroup:
+    def __int__(self, id_lecturer, id_group):
+        self.id_lecturer = id_lecturer
+        self.id_group = id_group
 
 def connect():
     conn = psycopg2.connect(
@@ -84,14 +97,14 @@ def connect():
     cur = conn.cursor()
     return conn, cur
 
-
+#id передаются в списках user_data, group_data
 #подключение к БД происходит один раз в начале регистрации
 def registration_user(user_data, group_data, is_student):  #приходит какая-то информация о пользователе
     """Происходит получение информации о пользователе и группе и данные заносятся в таблицу student или lecturer"""
     conn, cur = connect()
     if is_student:
-        group = Group(*group_data, cur)
-        student = Student(*user_data, cur)
+        group = Group(*group_data)
+        student = Student(*user_data)
         if not is_group_reg(group):  #сначала заполняется таблица группы, если группы нет
             cur.execute("insert into group (id, name, edu_year, edu_program, faculty, edu_format, edu_level) "
                         "values (%s, %s, %s, %s, %s, %s);", (1, group.name, group.edu_year, group.edu_program,
@@ -99,7 +112,7 @@ def registration_user(user_data, group_data, is_student):  #приходит к�
         cur.execute(f"insert into student (id, name, surname, father_name, id_group) values (%s, %s, %s, %s, %s);",
                     (2, student.name, student.surname, student.father_name, student.id_group))
     else:
-        lecturer = Lecturer(*user_data, cur)
+        lecturer = Lecturer(*user_data)
         cur.execute(f"insert into lecturer (id, name, surname, father_name) values (%s, %s, %s, %s);",
                     (1, lecturer.name, lecturer.surname, lecturer.father_name))
     conn.commit()
