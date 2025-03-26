@@ -11,6 +11,7 @@ from pythonProject.Registration import *
 #продумать получение id_lecturer при получении информации о паре
 #при ситуации, когда препод хочет внести индвид. пару, айди студента может быть null
 #написать отдельную функцию для вставки, которая бы принимала курсор
+#сделать так, чтобы при вводе фамилии препода предлагались зареганные преподы
 def find_by_lecturer_name(student: R.Student, lecturer: R.Lecturer, is_group_lesson: bool)-> list:
     """Вход - объекты класса Student, Lecturer
        """
@@ -42,11 +43,24 @@ def find_by_lesson_name(lesson_name: str, student: R.Student, is_group_lesson: b
     conn.close()
     return res
 
-def find_by_date()-> list:
+def find_by_date(lesson_date: str, student: R.Student, is_group_lesson: bool)-> list:
     """Вход - дату и объект класса Student
     """
+    conn, cur = R.connect()
+    if is_group_lesson:
+        cur.execute("select * from group_lesson where lesson_date = %s and id_group_lesson in ("
+                    "select id from GroupLessonGroup where id_group = %s);", lesson_date, student.id_group)
+    else:
+        cur.execute("select * from personal_lesson as p_l where p_l.ID in "
+                    "(select p_l_s.ID from personal_lesson_student as p_l_s where p_l_s.id_student = %s) and p_l.lesson_date = %s"
+                    , student.ID, lesson_date)
+    res = cur.fetchall()
+    cur.close()
+    conn.close()
+    return res
 
-    pass
+
+
 
 def find_by_week_day(week_day: str, student: R.Student, is_group_lesson: bool)-> list:
     """Вход - день недели, объект класса Student.
@@ -65,56 +79,84 @@ def find_by_week_day(week_day: str, student: R.Student, is_group_lesson: bool)->
     return res
 
 
-def insert_lesson(user_data: list, lesson_data: list, group_data: list, is_student: bool, is_group_lesson: bool)-> None:
+def insert_lesson(user_data: list, lesson_data: list, is_student: bool, is_group_lesson: bool) -> None:
     """Функция вносит информацию о паре в БД"""
     conn, cur = R.connect()
-    if is_student:
-        student = Student(*user_data)
-        if is_group_lesson:
-            #тут должны получать ID последний из таблицы
-            lesson = GroupLesson(*lesson_data)
-            glg = GroupLessonGroup( lesson.ID, student.id_group)
-            cur.execute("insert into GroupLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group)"
-                        "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                        (1, lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
-                         lesson.time, lesson.week_day, lesson.is_upper, student.id_group))
-            cur.execute("insert into GroupLessonGroup(ID, id_group_lesson, id_group)"
-                        "values (%s, %s, %s)", (glg.id_group_lesson, glg.id_group))
+    try:
+        if is_student:
+            student = Student(*user_data)
+            if is_group_lesson:
+                # Логика для групповых занятий
+                lesson = GroupLesson(*lesson_data)
+                cur.execute(
+                    "INSERT INTO GroupLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper, id_group) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID",
+                    (lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
+                     lesson.time, lesson.week_day, lesson.is_upper, student.id_group)
+                )
+                lesson_id = cur.fetchone()[0]
+                cur.execute(
+                    "INSERT INTO GroupLessonGroup(id_group_lesson, id_group) VALUES (%s, %s)",
+                    (lesson_id, student.id_group)
+                )
+            else:
+                # Логика для персональных занятий - ИСПРАВЛЕННАЯ ВЕРСИЯ
+                lesson = PersonalLesson(*lesson_data)
+
+                # 1. Вставляем занятие и получаем его реальный ID
+                cur.execute(
+                    "INSERT INTO PersonalLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper, id_student) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID",
+                    (lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
+                     lesson.time, lesson.week_day, lesson.is_upper, student.ID)
+                )
+                lesson_id = cur.fetchone()[0]
+                #conn.commit()
+                # 2. Вставляем связь студента с занятием
+                cur.execute(
+                    "INSERT INTO PersonalLessonStudent(id_student, id_personal_lesson) VALUES (%s, %s)",
+                    (student.ID, lesson_id)
+                )
         else:
-            lesson = PersonalLesson(*lesson_data)
-            pls = PersonalLessonStudent(student.ID, lesson.ID)
-            cur.execute(
-                "insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student)"
-                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (1, lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
-                 lesson.time, lesson.week_day, lesson.is_upper, student.ID))
-            cur.execute("insert into PersonalLessonStudent(ID, id_student, id_personal_lesson)"
-                        "values (%s, %s, %s)", (pls.id_student, pls.id_personal_lesson))
-    else:
-        lecturer = Lecturer(*user_data)
-        if is_group_lesson:
-            lesson = GroupLesson(*lesson_data)
-            if cur.execute("select * from LecturerGroup where id_lecturer = %s and id_group = %s;", (lecturer.ID, lesson.id_group)) is None:
-                cur.execute("insert into LecturerGroup(id_lecturer, id_group)"
-                            "values (%s, %s)", (lecturer.ID, lesson.id_group))
-            glg = GroupLessonGroup(lesson.ID, lesson.id_group)
-            cur.execute(
-                "insert into GroupLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group)"
-                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (1, lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
-                 lesson.time, lesson.week_day, lesson.is_upper, lesson.id_group))
-            cur.execute("insert into GroupLessonGroup(ID, id_group_lesson, id_group)"
-                        "values (%s, %s, %s)", (glg.id_group_lesson, glg.id_group))
-        else:
-            lesson = PersonalLesson(*lesson_data)
-            cur.execute(
-                "insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper)"
-                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (1, lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lesson.id_lecturer,
-                 lesson.time, lesson.week_day, lesson.is_upper))
-    conn.commit()
-    cur.close()
-    conn.close()
+            # Логика для преподавателей
+            lecturer = Lecturer(*user_data)
+            if is_group_lesson:
+                lesson = GroupLesson(*lesson_data)
+                cur.execute(
+                    "SELECT 1 FROM LecturerGroup WHERE id_lecturer = %s AND id_group = %s",
+                    (lecturer.ID, lesson.id_group)
+                )
+                if not cur.fetchone():
+                    cur.execute(
+                        "INSERT INTO LecturerGroup(id_lecturer, id_group) VALUES (%s, %s)",
+                        (lecturer.ID, lesson.id_group)
+                    )
+                cur.execute(
+                    "INSERT INTO GroupLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper, id_group) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID",
+                    (lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lecturer.ID,
+                     lesson.time, lesson.week_day, lesson.is_upper, lesson.id_group)
+                )
+                lesson_id = cur.fetchone()[0]
+                cur.execute(
+                    "INSERT INTO GroupLessonGroup(id_group_lesson, id_group) VALUES (%s, %s)",
+                    (lesson_id, lesson.id_group)
+                )
+            else:
+                lesson = PersonalLesson(*lesson_data)
+                cur.execute(
+                    "INSERT INTO PersonalLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID",
+                    (lesson.name, lesson.type_l, lesson.building, lesson.auditorium, lecturer.ID,
+                     lesson.time, lesson.week_day, lesson.is_upper)
+                )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
 
 
 
