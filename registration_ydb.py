@@ -5,7 +5,7 @@ import ydb
 
 
 class Lesson:
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, lesson_date):
+    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date):
         # Общие атрибуты для всех уроков
         self.name = name
         self.type_l = type_l
@@ -13,25 +13,25 @@ class Lesson:
         self.auditorium = auditorium
         self.id_lecturer = id_lecturer
         self.time = time
-        self.week_day = week_day
+        self.is_weekly = is_weekly
         self.is_upper = is_upper
         self.lesson_date = lesson_date
 
 
 class PersonalLesson(Lesson):
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, lesson_date,
+    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
                  id_student):
         # Вызываем конструктор родительского класса для инициализации общих атрибутов
-        super().__init__(name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, lesson_date)
+        super().__init__(name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date)
         # Уникальный атрибут для PersonalLesson
         self.id_student = id_student
 
 
 class GroupLesson(Lesson):
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, lesson_date,
+    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
                  id_group):
         # Вызываем конструктор родительского класса для инициализации общих атрибутов
-        super().__init__(name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, lesson_date)
+        super().__init__(name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date)
         # Уникальный атрибут для GroupLesson
         self.id_group = id_group
 
@@ -83,27 +83,7 @@ class LecturerGroup:
         self.id_lecturer = id_lecturer
         self.id_group = id_group
 
-
-def is_group_reg(pool: ydb.QuerySessionPool, group):
-    """Проверяет, существует ли группа в БД.
-    :returns bool"""
-    res = (pool.execute_with_retries
-        (
-        """
-        DECLARE $edu_year AS Utf8;
-        DECLARE $name AS Utf8;
-
-        SELECT id FROM `Group`
-        WHERE name = $name AND edu_year = $edu_year;
-        """,
-        {"$edu_year": group.edu_year,
-         "$name": group.name
-         },
-    ))
-    return len(res[0].rows) != 0
-
-
-def select_id_group(pool: ydb.QuerySessionPool, group: Group):
+def get_group_records(pool: ydb.QuerySessionPool, group: Group)-> list[ydb.convert._Row]:
     return sorted(pool.execute_with_retries(
         """
         DECLARE $name AS Utf8;
@@ -116,10 +96,17 @@ def select_id_group(pool: ydb.QuerySessionPool, group: Group):
             '$name': group.name,
             '$edu_year': group.edu_year,
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)[0].id
+    )[0].rows, key=lambda x: x.id, reverse=True)
 
+def select_id_group(pool: ydb.QuerySessionPool, group: Group)-> int:
+    records = get_group_records(pool, group)
+    return records[0].id
 
-def select_id_lesson(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int):
+def is_group_reg(pool: ydb.QuerySessionPool, group: Group)-> bool:
+    records = get_group_records(pool, group)
+    return len(records) != 0
+
+def get_lesson_records(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> list[ydb.convert._Row]:
     unique_elem = ""
     table = ""
     if isinstance(lesson, GroupLesson):
@@ -130,22 +117,29 @@ def select_id_lesson(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, Pers
         table = 'PersonalLesson'
     return sorted(pool.execute_with_retries(
         f"""
-        DECLARE ${unique_elem} AS Int64;
-        DECLARE $lesson_date AS Date;
-        DECLARE $time AS Utf8;
+            DECLARE ${unique_elem} AS Int64;
+            DECLARE $lesson_date AS Date;
+            DECLARE $time AS Utf8;
 
-        SELECT id FROM `{table}`
-        WHERE {unique_elem} = ${unique_elem} AND lesson_date = $lesson_date AND time = $time;
-        """,
+            SELECT id FROM `{table}`
+            WHERE {unique_elem} = ${unique_elem} AND lesson_date = $lesson_date AND time = $time;
+            """,
         {
             f'${unique_elem}': (id_obj, ydb.PrimitiveType.Int64),
             '$lesson_date': (datetime.strptime(lesson.lesson_date, '%d.%m.%Y').date(), ydb.PrimitiveType.Date),
             '$time': lesson.time
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)[0].id
+    )[0].rows, key=lambda x: x.id, reverse=True)
 
+def select_id_lesson(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> int:
+    records = get_lesson_records(pool, lesson, id_obj)
+    return records[0].id
 
-def select_id_student(pool: ydb.QuerySessionPool, student: Student):
+def is_lesson_reg(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> bool:
+    records = get_lesson_records(pool, lesson, id_obj)
+    return len(records) != 0
+
+def get_student_records(pool: ydb.QuerySessionPool, student: Student)-> list[ydb.convert._Row]:
     return sorted(pool.execute_with_retries(
         """
         DECLARE $name AS Utf8;
@@ -162,10 +156,17 @@ def select_id_student(pool: ydb.QuerySessionPool, student: Student):
             '$father_name': student.father_name,
             '$id_group': (student.id_group, ydb.PrimitiveType.Int64),
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)[0].id
+    )[0].rows, key=lambda x: x.id, reverse=True)
 
+def select_id_student(pool: ydb.QuerySessionPool, student: Student)-> int:
+    records = get_student_records(pool, student)
+    return records[0].id
 
-def select_id_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer):
+def is_student_reg(pool: ydb.QuerySessionPool, student: Student)-> bool:
+    records = get_student_records(pool, student)
+    return len(records) != 0
+
+def get_lecturer_records(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> list[ydb.convert._Row]:
     return sorted(pool.execute_with_retries(
         """
         DECLARE $name AS Utf8;
@@ -180,7 +181,15 @@ def select_id_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer):
             '$surname': lecturer.surname,
             '$father_name': lecturer.father_name,
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)[0].id
+    )[0].rows, key=lambda x: x.id, reverse=True)
+
+def select_id_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> int:
+    records = get_lecturer_records(pool, lecturer)
+    return records[0].id
+
+def is_lecturer_reg(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> bool:
+    records = get_lecturer_records(pool, lecturer)
+    return len(records) != 0
 
 
 def connect_lecturer_with_group(pool: ydb.QuerySessionPool, id_group: int, id_lecturer: int):
@@ -215,7 +224,7 @@ def connect_lecturer_with_group(pool: ydb.QuerySessionPool, id_group: int, id_le
 
 
 # декомпозировать
-def registration_user(user_data: list, group_data: list, pool: ydb.QuerySessionPool, is_student=True, ):
+def registration_user(user_data: list, group_data: list, pool: ydb.QuerySessionPool, is_student=True):
     """Регистрирует пользователя и группу в БД."""
     if is_student:
         group = Group(*group_data)
@@ -223,65 +232,79 @@ def registration_user(user_data: list, group_data: list, pool: ydb.QuerySessionP
         # Проверяем, существует ли группа
         if not is_group_reg(pool, group):
             # Если группы нет, добавляем её
-            pool.execute_with_retries(
-                """
-                DECLARE $name AS Utf8;
-                DECLARE $edu_year AS Utf8;
-                DECLARE $edu_program AS Utf8;
-                DECLARE $faculty AS Utf8;
-                DECLARE $edu_format AS Utf8;
-                DECLARE $edu_level AS Utf8;
-
-                INSERT INTO `Group` (name, edu_year, edu_program, faculty, edu_format, edu_level)
-                VALUES ($name, $edu_year, $edu_program, $faculty, $edu_format, $edu_level);
-                """,
-                {
-                    '$name': group.name,
-                    '$edu_year': group.edu_year,
-                    '$edu_program': group.edu_program,
-                    '$faculty': group.faculty,
-                    '$edu_format': group.edu_format,
-                    '$edu_level': group.edu_level
-                },
-            )
-            # Возможно не сработает, потому что не сразу добавилось
+            reg_group(pool, group)
         id_group = select_id_group(pool, group)  # Получаем id новой группы
-        pool.execute_with_retries(
-            """
-            DECLARE $name AS Utf8;
-            DECLARE $surname AS Utf8;
-            DECLARE $father_name AS Utf8;
-            DECLARE $id_group AS Int16;
-
-            INSERT INTO Student (name, surname, father_name, id_group)
-            VALUES ($name, $surname, $father_name, $id_group);
-            """,
-            {
-                '$name': student.name,
-                '$surname': student.surname,
-                '$father_name': student.father_name,
-                '$id_group': (id_group, ydb.PrimitiveType.Int16),
-
-            },
-        )
+        if not is_student_reg(pool, student):
+            reg_student(pool, student, id_group)
+        else:
+            return -1  #пользователь зарегистрирован
     else:
         lecturer = Lecturer(*user_data)
-        pool.execute_with_retries(
-            """
-            DECLARE $name AS Utf8;
-            DECLARE $surname AS Utf8;
-            DECLARE $father_name AS Utf8;
-
-            INSERT INTO Lecturer (name, surname, father_name)
-            VALUES ($name, $surname, $father_name);
-            """,
-            {
-                '$name': lecturer.name,
-                '$surname': lecturer.surname,
-                '$father_name': lecturer.father_name,
-            },
-        )
+        if not is_lecturer_reg(pool, lecturer):
+            reg_lecturer(pool, lecturer)
+        else:
+            return -1 #пользователь зарегистрирован
 
 
-def connect():
-    pass
+def reg_group(pool: ydb.QuerySessionPool, group: Group) -> None:
+    pool.execute_with_retries(
+        """
+        DECLARE $name AS Utf8;
+        DECLARE $edu_year AS Utf8;
+        DECLARE $edu_program AS Utf8;
+        DECLARE $faculty AS Utf8;
+        DECLARE $edu_format AS Utf8;
+        DECLARE $edu_level AS Utf8;
+
+        INSERT INTO `Group` (name, edu_year, edu_program, faculty, edu_format, edu_level)
+        VALUES ($name, $edu_year, $edu_program, $faculty, $edu_format, $edu_level);
+        """,
+        {
+            '$name': group.name,
+            '$edu_year': group.edu_year,
+            '$edu_program': group.edu_program,
+            '$faculty': group.faculty,
+            '$edu_format': group.edu_format,
+            '$edu_level': group.edu_level
+        },
+    )
+
+
+def reg_student(pool: ydb.QuerySessionPool, student: Student, id_group: int) -> None:
+    pool.execute_with_retries(
+        """
+        DECLARE $name AS Utf8;
+        DECLARE $surname AS Utf8;
+        DECLARE $father_name AS Utf8;
+        DECLARE $id_group AS Int16;
+
+        INSERT INTO Student (name, surname, father_name, id_group)
+        VALUES ($name, $surname, $father_name, $id_group);
+        """,
+        {
+            '$name': student.name,
+            '$surname': student.surname,
+            '$father_name': student.father_name,
+            '$id_group': (id_group, ydb.PrimitiveType.Int16),
+
+        },
+    )
+
+
+def reg_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer) -> None:
+    pool.execute_with_retries(
+        """
+        DECLARE $name AS Utf8;
+        DECLARE $surname AS Utf8;
+        DECLARE $father_name AS Utf8;
+
+        INSERT INTO Lecturer (name, surname, father_name)
+        VALUES ($name, $surname, $father_name);
+        """,
+        {
+            '$name': lecturer.name,
+            '$surname': lecturer.surname,
+            '$father_name': lecturer.father_name,
+        },
+    )
+
