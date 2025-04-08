@@ -83,30 +83,36 @@ class LecturerGroup:
         self.id_lecturer = id_lecturer
         self.id_group = id_group
 
-def get_group_records(pool: ydb.QuerySessionPool, group: Group)-> list[ydb.convert._Row]:
-    return sorted(pool.execute_with_retries(
-        """
+def get_group_records(pool: ydb.QuerySessionPool, group: Group, is_exist_check: bool)-> list[ydb.convert._Row]:
+    attr = 'id'
+    if is_exist_check:
+        attr = '1'
+    return pool.execute_with_retries(
+        f"""
         DECLARE $name AS Utf8;
         DECLARE $edu_year AS Utf8;
 
-        SELECT id FROM `Group`
+        SELECT {attr} FROM `Group`
         WHERE name = $name AND edu_year = $edu_year;
         """,
         {
             '$name': group.name,
             '$edu_year': group.edu_year,
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)
+    )[0].rows
 
 def select_id_group(pool: ydb.QuerySessionPool, group: Group)-> int:
-    records = get_group_records(pool, group)
+    records = sorted(get_group_records(pool, group, False), key=lambda x: x.id, reverse=True)
     return records[0].id
 
 def is_group_reg(pool: ydb.QuerySessionPool, group: Group)-> bool:
-    records = get_group_records(pool, group)
+    records = get_group_records(pool, group, True)
     return len(records) != 0
 
-def get_lesson_records(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> list[ydb.convert._Row]:
+def get_lesson_records(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int, is_exist_check: bool)-> list[ydb.convert._Row]:
+    attr = 'id'
+    if is_exist_check:
+        attr = '1'
     unique_elem = ""
     table = ""
     if isinstance(lesson, GroupLesson):
@@ -115,13 +121,13 @@ def get_lesson_records(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, Pe
     if isinstance(lesson, PersonalLesson):
         unique_elem = 'id_student'
         table = 'PersonalLesson'
-    return sorted(pool.execute_with_retries(
+    return pool.execute_with_retries(
         f"""
             DECLARE ${unique_elem} AS Int64;
             DECLARE $lesson_date AS Date;
             DECLARE $time AS Utf8;
 
-            SELECT id FROM `{table}`
+            SELECT {attr} FROM `{table}`
             WHERE {unique_elem} = ${unique_elem} AND lesson_date = $lesson_date AND time = $time;
             """,
         {
@@ -129,25 +135,28 @@ def get_lesson_records(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, Pe
             '$lesson_date': (datetime.strptime(lesson.lesson_date, '%d.%m.%Y').date(), ydb.PrimitiveType.Date),
             '$time': lesson.time
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)
+    )[0].rows
 
 def select_id_lesson(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> int:
-    records = get_lesson_records(pool, lesson, id_obj)
+    records = sorted(get_lesson_records(pool, lesson, id_obj, False), key=lambda x: x.id, reverse=True)
     return records[0].id
 
 def is_lesson_reg(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_obj: int)-> bool:
-    records = get_lesson_records(pool, lesson, id_obj)
+    records = get_lesson_records(pool, lesson, id_obj, True)
     return len(records) != 0
 
-def get_student_records(pool: ydb.QuerySessionPool, student: Student)-> list[ydb.convert._Row]:
-    return sorted(pool.execute_with_retries(
-        """
+def get_student_records(pool: ydb.QuerySessionPool, student: Student, is_exist_check:bool)-> list[ydb.convert._Row]:
+    attr = 'id'
+    if is_exist_check:
+        attr = '1'
+    return pool.execute_with_retries(
+        f"""
         DECLARE $name AS Utf8;
         DECLARE $surname AS Utf8;
         DECLARE $father_name AS Utf8;
         DECLARE $id_group AS Int64;
 
-        SELECT id FROM `Student`
+        SELECT {attr} FROM `Student`
         WHERE name = $name AND surname = $surname AND father_name = $father_name AND id_group = $id_group;
         """,
         {
@@ -156,24 +165,27 @@ def get_student_records(pool: ydb.QuerySessionPool, student: Student)-> list[ydb
             '$father_name': student.father_name,
             '$id_group': (student.id_group, ydb.PrimitiveType.Int64),
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)
+    )[0].rows
 
 def select_id_student(pool: ydb.QuerySessionPool, student: Student)-> int:
-    records = get_student_records(pool, student)
+    records = sorted(get_student_records(pool, student, False), key=lambda x: x.id, reverse=True)
     return records[0].id
 
 def is_student_reg(pool: ydb.QuerySessionPool, student: Student)-> bool:
-    records = get_student_records(pool, student)
+    records = get_student_records(pool, student, True)
     return len(records) != 0
 
-def get_lecturer_records(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> list[ydb.convert._Row]:
-    return sorted(pool.execute_with_retries(
-        """
+def get_lecturer_records(pool: ydb.QuerySessionPool, lecturer: Lecturer, is_exist_check: bool)-> list[ydb.convert._Row]:
+    attr = 'id'
+    if is_exist_check:
+        attr = '1'
+    return pool.execute_with_retries(
+        f"""
         DECLARE $name AS Utf8;
         DECLARE $surname AS Utf8;
         DECLARE $father_name AS Utf8;
 
-        SELECT id FROM `Lecturer`
+        SELECT {attr} FROM `Lecturer`
         WHERE name = $name AND surname = $surname AND father_name = $father_name;
         """,
         {
@@ -181,14 +193,14 @@ def get_lecturer_records(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> list[
             '$surname': lecturer.surname,
             '$father_name': lecturer.father_name,
         },
-    )[0].rows, key=lambda x: x.id, reverse=True)
+    )[0].rows
 
 def select_id_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> int:
-    records = get_lecturer_records(pool, lecturer)
+    records = sorted(get_lecturer_records(pool, lecturer, False), key=lambda x: x.id, reverse=True)
     return records[0].id
 
 def is_lecturer_reg(pool: ydb.QuerySessionPool, lecturer: Lecturer)-> bool:
-    records = get_lecturer_records(pool, lecturer)
+    records = get_lecturer_records(pool, lecturer, True)
     return len(records) != 0
 
 
@@ -223,8 +235,8 @@ def connect_lecturer_with_group(pool: ydb.QuerySessionPool, id_group: int, id_le
         )
 
 
-# декомпозировать
-def registration_user(user_data: list, group_data: list, pool: ydb.QuerySessionPool, is_student=True):
+
+def registration_user(user_data: list, pool: ydb.QuerySessionPool, is_student=True, group_data: list= None):
     """Регистрирует пользователя и группу в БД."""
     if is_student:
         group = Group(*group_data)
@@ -233,9 +245,10 @@ def registration_user(user_data: list, group_data: list, pool: ydb.QuerySessionP
         if not is_group_reg(pool, group):
             # Если группы нет, добавляем её
             reg_group(pool, group)
-        id_group = select_id_group(pool, group)  # Получаем id новой группы
+            #тут потенциально о
+            student.id_group = select_id_group(pool, group)  # Получаем id новой группы
         if not is_student_reg(pool, student):
-            reg_student(pool, student, id_group)
+            reg_student(pool, student, student.id_group)
         else:
             return -1  #пользователь зарегистрирован
     else:
