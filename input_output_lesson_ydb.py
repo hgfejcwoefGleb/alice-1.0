@@ -1,3 +1,5 @@
+from ydb import QuerySessionPool
+
 from registration_ydb import *
 import ydb
 from typing import Union
@@ -11,47 +13,87 @@ from typing import Union
 # при ситуации, когда препод хочет внести индвид. пару, айди студента может быть null
 # написать отдельную функцию для вставки, которая бы принимала курсор
 # сделать так, чтобы при вводе фамилии препода предлагались зареганные преподы
+#ловить ошибки, когда нет чего-то в БД
 
-# возможно путаница с датами и типами данных
-def find_lesson(pool: ydb.QuerySessionPool, is_group_lesson: bool, search_attr_name: str, search_attr_val: str,
-                is_student: bool,
-                id_group: int, id_lecturer: int, id_student: int
-                ) -> list:
-    """Поиск предмета для преподавателя и студента по атрибутам:
-        id_lecturer, name, lesson_date
-       """
+def find_lesson_student(pool: QuerySessionPool, is_group_lesson: bool, search_attr_name: str, search_attr_val: str,
+                          id_group: int =-1,  id_student: int =-1)-> list:
+    """
+    Функция, которая ищет пары
+    по name, id_lecturer, lesson_date
+    :param pool:
+    :param is_group_lesson:
+    :param search_attr_name:
+    :param search_attr_val:
+    :param id_group:
+    :param id_student:
+    :return list:
+    Если нужного значения нет, то выводится пустой список
+    """
+
+    dtype = 'Utf8' if search_attr_name == 'name' else 'Int64' if search_attr_name == 'id_lecturer' else 'Date'
     if is_group_lesson:
         return pool.execute_with_retries(f"""
-            DECLARE ${search_attr_name} AS Utf8;
+            DECLARE ${search_attr_name} AS {dtype};
             DECLARE $id_group AS Int64;
-            DECLARE $id_lecturer AS Int64;
 
             SELECT * FROM GroupLesson
-            WHERE {search_attr_name} = ${search_attr_name}""" + (
-                    not is_student and search_attr_name != 'id_lecturer') * " AND id_lecturer = $id_lecturer "
-                                         + is_student * """AND id IN
+            WHERE {search_attr_name} = ${search_attr_name} AND id IN
             (SELECT id_group_lesson from GroupLessonGroup WHERE id_group = $id_group)
             """, {
-                                             f'${search_attr_name}': search_attr_val,
+                                             f'${search_attr_name}': (search_attr_val, ydb.PrimitiveType.Date
+                                             if search_attr_name == 'lesson_date' else ydb.PrimitiveType.Int64 if search_attr_name == 'id_lecturer'
+                                             else ydb.PrimitiveType.Utf8),
                                              '$id_group': id_group,
-                                             '$id_lecturer': id_lecturer
                                          })[0].rows
     else:
+        print(id_student)
         return pool.execute_with_retries(f"""
-            DECLARE ${search_attr_name} AS Utf8;
+            DECLARE ${search_attr_name} AS {dtype};
             DECLARE $id_student AS Int64;
 
             SELECT * FROM PersonalLesson AS PL 
             WHERE PL.id IN 
-                        (SELECT PLS.id FROM PersonalLessonStudent as PLS
+                        (SELECT PLS.id_personal_lesson FROM PersonalLessonStudent as PLS
                         WHERE PLS.id_student = $id_student)
             AND PL.{search_attr_name} = ${search_attr_name} 
             """
                                          ,
-                                         {f'${search_attr_name}': search_attr_val,
+                                         {f'${search_attr_name}': (search_attr_val, ydb.PrimitiveType.Date
+                                             if search_attr_name == 'lesson_date' else ydb.PrimitiveType.Int64 if search_attr_name == 'id_lecturer'
+                                             else ydb.PrimitiveType.Utf8),
                                           '$id_student': id_student
 
                                           })[0].rows
+
+
+
+def find_lesson_lecturer(pool: QuerySessionPool, table_name: str, search_attr_name: str,
+                         search_attr_val: str,
+                         id_lecturer: int) -> list:
+    """
+    Функция, которая ищет пары
+    по name, lesson_date
+    :param pool:
+    :param table_name:
+    :param search_attr_name:
+    :param search_attr_val:
+    :param id_lecturer:
+    :return list:
+    Если нужного значения нет, то выводится пустой список
+    """
+    dtype = 'Utf8' if search_attr_name == 'name' else 'Date'
+    return pool.execute_with_retries(f"""
+        DECLARE ${search_attr_name} AS {dtype};
+        DECLARE $id_lecturer AS Int64;
+
+        SELECT * FROM {table_name}
+        WHERE {search_attr_name} = ${search_attr_name} AND id_lecturer = $id_lecturer
+        """, {
+        f'${search_attr_name}': (search_attr_val, ydb.PrimitiveType.Date
+                                             if search_attr_name == 'lesson_date'
+                                             else ydb.PrimitiveType.Utf8),
+        '$id_lecturer': id_lecturer,
+    })[0].rows
 
 
 def insert_lesson_data(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_elem: int):
