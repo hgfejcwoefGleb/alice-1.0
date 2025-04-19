@@ -3,8 +3,17 @@ from ydb import QuerySessionPool
 from registration_ydb import *
 import ydb
 from typing import Union
+from datetime import datetime, timedelta
 
-
+week_days_dict = {
+    'monday': 1,
+    'tuesday': 2,
+    'wednesday': 3,
+    'thursday': 4,
+    'friday': 5,
+    'saturday': 6,
+    'sunday': 7
+}
 # Функции для поиска информации
 # везде смотрим на ID студента
 # Продумать,чтобы пользователь вносил даты списком и они добавлялись в таблицу
@@ -29,7 +38,12 @@ def find_lesson_student(pool: QuerySessionPool, is_group_lesson: bool, search_at
     :return list:
     Если нужного значения нет, то выводится пустой список
     """
-
+    if search_attr_name == 'today':
+        search_attr_name = 'lesson_date'
+        search_attr_val = datetime.strptime(datetime.now().strftime('%d.%m.%Y'), '%d.%m.%Y')
+    elif search_attr_name == 'tomorrow':
+        search_attr_name = 'lesson_date'
+        search_attr_val = datetime.strptime((datetime.now() + timedelta(days=1)).strftime('%d.%m.%Y'), '%d.%m.%Y')
     dtype = 'Utf8' if search_attr_name == 'name' else 'Int64' if search_attr_name == 'id_lecturer' else 'Date'
     if is_group_lesson:
         return pool.execute_with_retries(f"""
@@ -46,7 +60,6 @@ def find_lesson_student(pool: QuerySessionPool, is_group_lesson: bool, search_at
                                              '$id_group': id_group,
                                          })[0].rows
     else:
-        print(id_student)
         return pool.execute_with_retries(f"""
             DECLARE ${search_attr_name} AS {dtype};
             DECLARE $id_student AS Int64;
@@ -65,7 +78,35 @@ def find_lesson_student(pool: QuerySessionPool, is_group_lesson: bool, search_at
 
                                           })[0].rows
 
+def find_by_week_day_lesson_student(pool: ydb.QuerySessionPool, is_group_lesson: bool,
+                                    id_group: int, id_student: int, week_day: str)-> list:
+    if is_group_lesson:
+        return pool.execute_with_retries(f"""
+                    DECLARE $lesson_date AS Int64;
+                    DECLARE $id_group AS Int64;
 
+                    SELECT * FROM GroupLesson
+                    WHERE DateTime::GetDayOfWeek(lesson_date) = $lesson_date AND id IN
+                    (SELECT id_group_lesson from GroupLessonGroup WHERE id_group = $id_group)
+                    """, {
+            f'$lesson_date': week_days_dict[week_day],
+            '$id_group': id_group,
+        })[0].rows
+    elif not is_group_lesson:
+        return pool.execute_with_retries(f"""
+                    DECLARE $lesson_date AS Int64;
+                    DECLARE $id_student AS Int64;
+
+                    SELECT * FROM PersonalLesson AS PL 
+                    WHERE PL.id IN 
+                                (SELECT PLS.id_personal_lesson FROM PersonalLessonStudent as PLS
+                                WHERE PLS.id_student = $id_student)
+                    AND PL.DateTime::GetDayOfWeek(lesson_date) = $lesson_date 
+                    """
+                                  ,
+                                  {f'$lesson_date': week_days_dict[week_day],
+                                   '$id_student': id_student
+                                   })[0].rows
 
 def find_lesson_lecturer(pool: QuerySessionPool, table_name: str, search_attr_name: str,
                          search_attr_val: str,
@@ -81,6 +122,13 @@ def find_lesson_lecturer(pool: QuerySessionPool, table_name: str, search_attr_na
     :return list:
     Если нужного значения нет, то выводится пустой список
     """
+    if search_attr_name == 'today':
+        search_attr_name = 'lesson_date'
+        search_attr_val = datetime.strptime(datetime.now().strftime('%d.%m.%Y'), '%d.%m.%Y')
+    elif search_attr_name == 'tomorrow':
+        search_attr_name = 'lesson_date'
+        search_attr_val = datetime.strptime((datetime.now() + timedelta(days=1)).strftime('%d.%m.%Y'), '%d.%m.%Y')
+
     dtype = 'Utf8' if search_attr_name == 'name' else 'Date'
     return pool.execute_with_retries(f"""
         DECLARE ${search_attr_name} AS {dtype};
@@ -95,6 +143,18 @@ def find_lesson_lecturer(pool: QuerySessionPool, table_name: str, search_attr_na
         '$id_lecturer': id_lecturer,
     })[0].rows
 
+def find_by_week_day_lesson_lecturer(pool: ydb.QuerySessionPool, table_name: str,
+                                     week_day: str, id_lecturer: int)-> list:
+    return pool.execute_with_retries(f"""
+                        DECLARE $lesson_date AS Int64;
+                        DECLARE $id_lecturer AS Int64;
+
+                        SELECT * FROM {table_name}
+                        WHERE DateTime::GetDayOfWeek(lesson_date) = $lesson_date AND id_lecturer = $id_lecturer
+                        """, {
+        f'$lesson_date': week_days_dict[week_day],
+        '$id_lecturer': id_lecturer,
+    })[0].rows
 
 def insert_lesson_data(pool: ydb.QuerySessionPool, lesson: Union[GroupLesson, PersonalLesson], id_elem: int):
     unique_elem = ""
@@ -199,3 +259,33 @@ def insert_lesson(user_data: list, lesson_data: list, is_student: bool, is_group
                 insert_lesson_data(pool, lesson, -1)  # -1 означает, что это пара отдельно для преподавателя
             id_personal_lesson = select_id_lesson(pool, lesson, -1)
             insert_help_tables_data(pool, id_personal_lesson, -1, is_group_lesson)
+
+
+def change_db_data(pool: ydb.QuerySessionPool, user_data_old: str, user_data_new: str):
+    """Функция по изменению данных пользователя в БД"""
+    student = Student(*list(user_data_old.split()))
+    student.id_group = int(student.id_group)
+    id_student = select_id_student(pool, student)
+    print(student.id_group)
+    student.id_group = int(student.id_group)
+    student = Student(*list(user_data_new.split()))
+    student.id_group = int(student.id_group)
+    pool.execute_with_retries(
+        f"""
+        DECLARE $id AS Int64; 
+        DECLARE $name AS Utf8;
+        DECLARE $surname AS Utf8;
+        DECLARE $father_name AS Utf8;
+        DECLARE $id_group AS Int64;
+
+        UPSERT INTO Student(id, name, surname, father_name, id_group)
+        VALUES ($id, $name, $surname, $father_name, $id_group)
+        """,
+        {
+            '$id': (id_student, ydb.PrimitiveType.Int64),
+            '$name': student.name,
+            '$surname': student.surname,
+            '$father_name': student.father_name,
+            '$id_group': (student.id_group, ydb.PrimitiveType.Int64),
+        }
+    )

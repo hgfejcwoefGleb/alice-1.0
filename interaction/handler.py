@@ -21,8 +21,6 @@ pool = ydb.QuerySessionPool(driver)
 def handler(event, context):
     print('Incoming request: ' + json.dumps(event))
     #для сброса информации пользователя
-    sc = Welcome()
-    sc.make_respose('1')
     request = Request(event)
     current_scene_id = event.get('state').get(STATE_REQUEST_KEY, {}).get('scene')
     if current_scene_id is None:

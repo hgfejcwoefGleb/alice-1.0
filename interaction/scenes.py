@@ -4,7 +4,8 @@ import inspect
 from request import Request
 from state import STATE_RESPONSE_KEY
 import intents
-from ..ydb.registration_ydb import *
+from registration_ydb import *
+from input_output_lesson_ydb import change_db_data
 
 
 class Scene(ABC):
@@ -21,6 +22,7 @@ class Scene(ABC):
     def move(self, request: Request):
         """Проверка и переход к следующей смене"""
         next_scene = self.handle_local_intents(request)
+        print(next_scene)
         if next_scene is None:
             next_scene = self.handle_global_intents(request)
         return next_scene
@@ -80,7 +82,8 @@ def is_registered(request: Request):
 def is_student(request: Request):  # перепишем с использованием интентов и сущностей
     return request['state']['user']['is_student'] == 'студент'
 
-#переписать без elif
+
+# переписать без elif
 
 class Welcome(Scene):
     def handle_global_intents(self, request: Request):
@@ -88,8 +91,10 @@ class Welcome(Scene):
             return GetHelpInGeneral()
         elif intents.REGISTRATE in request.intents or not is_registered(request):
             return Registration()
-        elif intents.FIND_SCHEDULE in request.intents:
-            return FindSchedule()
+        elif intents.FIND_SCHEDULE in request.intents and is_student(request):
+            return FindScheduleStudent()
+        elif intents.FIND_SCHEDULE in request.intents and not is_student(request):
+            return FindScheduleLecturer()
         elif intents.CHANGE_USER_DATA in request.intents:
             return ChangeUserData()
         elif intents.CHANGE_SCHEDULE in request.intents:
@@ -108,7 +113,7 @@ class Welcome(Scene):
             return GetHelpAddSch()
         # только для теста потом убрать
         else:
-            return IsStudent()
+            return ChangeUserData()
 
     def handle_local_intents(self, request: Request):
         pass
@@ -177,15 +182,18 @@ class InsertUserData(Registration):
         registration_user(user_data, pool, is_student(request), group_data.split())
         text = (
             'Очень приятно! Хочешь проверить свое расписание на сегодня, на какую-то другую дату или найти конкретный предмет?')
-        return self.make_response(text=text, user_state_update={'user_data': " ".join(user_data), 'group_data': group_data})
+        return self.make_response(text=text,
+                                  user_state_update={'user_data': " ".join(user_data), 'group_data': group_data})
 
     def handle_local_intents(self, request: Request):
         pass
 
-#возможно переписать фразы в соответствии с интентами
+
+# возможно переписать фразы в соответствии с интентами
 #
 class GetHelpInGeneral(Welcome):
     """"""
+
     def reply(self, request: Request, pool):
         text = ('Привет, я помогу узнать расписание твоих дисциплин '
                 'Например, если ты хочешь узнать расписание по философии, то'
@@ -202,79 +210,95 @@ class GetHelpInGeneral(Welcome):
     def handle_local_intents(self, request: Request):
         pass
 
+
 class ChangeUserData(Welcome):
     def reply(self, request: Request, pool):
         text = "Что ты хочешь поменять? Фамилию, имя, отчество номер группы или все в целом?"
         return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
-        if intents.CHANGE_ALL_DATA in request.intents:
-            return ChangeAllData()
-        elif intents.CHANGE_NAME in request.intents:
-            return ChangeName()
-        elif intents.CHANGE_SURNAME in request.intents:
-            return ChangeSurname()
-        elif intents.CHANGE_FATHER_NAME in request.intents:
-            return ChangeFatherName()
-        elif intents.CHANGE_GROUP in request.intents:
-            return ChangeGroup()
+        return EnterNewData()
 
-#перенести эту функцию в ydd
-def change_db_data(pool: ydb.QuerySessionPool, user_data_old: str, user_data_new):
-    """Функция по изменению данных пользователя в БД"""
-    student = Student(*user_data_old)
-    id_student = select_id_student(pool, student)
-    student = Student(*user_data_new)
-    pool.execute_with_retries(
-        f"""
-        DECLARE $id AS Int16; 
-        DECLARE $name AS Utf8;
-        DECLARE $surname AS Utf8;
-        DECLARE $father_name AS Utf8;
-        DECLARE $id_group AS Int16;
-        
-        UPSERT INTO Student(id, name, surname, father_name, id_group)
-        VALUES ($id, $name, $surname, $father_name, $id_group)
-        """,
-        {
-            '$id': id_student,
-            '$name': student.name,
-            '$surname': student.surname,
-            '$father_name': student.father_name,
-            '$id_group': student.id_group,
-        }
-    )
 
+class EnterNewData(ChangeUserData):
+    def reply(self, request: Request, pool):
+        text = "Хорошо, я поняла, сейчас сделаем. Назови свои новые данные."
+        return self.make_response(text=text)
+
+    def handle_local_intents(self, request: Request):
+        # if intents.CHANGE_ALL_DATA in request.intents:
+        # return ChangeAllData()
+        # elif intents.CHANGE_NAME in request.intents:
+        #return ChangeOneAttr('name')
+    # elif intents.CHANGE_SURNAME in request.intents:
+        #return ChangeOneAttr('surname')
+    # elif intents.CHANGE_FATHER_NAME in request.intents:
+        #return ChangeOneAttr('father_name')
+    # elif intents.CHANGE_GROUP in request.intents:
+        return ChangeOneAttr('group')
+
+
+# написать отдельно для препода
 class ChangeAllData(ChangeUserData):
     def reply(self, request: Request, pool):
         new_data = request['request']['command']
-
-        text = "Все данные успешно изменены!"
+        text = "Прекрасно, новые данные я запомнила!"
+        change_db_data(pool, request['state']['user']['user_data'], new_data)
         return self.make_response(text=text, user_state_update={'user_data': new_data})
 
     def handle_local_intents(self, request: Request):
         pass
 
 
+class ChangeOneAttr(ChangeUserData):
+    def __init__(self, change_attr=None):
+        self.change_attr = change_attr
+        self.attr_dict = {
+            'name': 0,
+            'surname': 1,
+            'father_name': 2,
+            'group': 3
+        }
+
+    def reply(self, request: Request, pool):
+        new_name = request['request']['command']
+        text = 'Хорошо, теперь запомнила твои новые данные!'
+        old_data = request['state']['user']['user_data']
+        new_data = old_data.split()
+        new_data[self.attr_dict[self.change_attr]] = new_name
+        new_data = " ".join(new_data)
+        print(new_data)
+        change_db_data(pool, old_data, new_data)
+        return self.make_response(text=text, user_state_update={'user_data': new_data})
+
+    def handle_local_intents(self, request: Request):
+        pass
+
+#написать отдельно для препода
+class FindScheduleStudent(Welcome):
+    def reply(self, request: Request, pool):
+        text = 'Конечно, вот расписание: '
+        #остановился тут перед дописыванием функций по поиску
+        #привести результат в читаемый вид
+        if intents.FIND_SCHEDULE_TOMORROW in request.intents:
+            pass
+        elif intents.FIND_SCHEDULE_TODAY in request.intents:
+            pass
+        elif intents.FIND_SCHEDULE_DATE in request.intents:
+            pass
+        elif intents.FIND_SCHEDULE_LESSON_NAME in request.intents:
+            pass
+        elif intents.FIND_SCHEDULE_LECTURER in request.intents:
+            pass
+        elif intents.FIND_SCHEDULE_WEEK_DAY in request.intents:
+            pass
+
+    def handle_local_intents(self, request: Request):
+        pass
 
 
-class ChangeName:
-    pass
 
-
-class ChangeSurname:
-    pass
-
-
-class ChangeFatherName:
-    pass
-
-
-class ChangeGroup:
-    pass
-
-
-class FindSchedule(Welcome):
+class FindScheduleLecturer(Welcome):
     pass
 
 class ChangeSchedule(Welcome):
@@ -283,6 +307,7 @@ class ChangeSchedule(Welcome):
 
 class AddLesson(Welcome):
     pass
+
 
 class GetHelpReg(GetHelpInGeneral):
     pass
@@ -312,13 +337,12 @@ SCENES = {
         InsertGroupData,
         InsertUserData,
         GetHelpInGeneral,
+        EnterNewData,
         ChangeUserData,
         ChangeAllData,
-        ChangeName,
-        ChangeSurname,
-        ChangeFatherName,
-        ChangeGroup,
-        FindSchedule,
+        ChangeOneAttr,
+        FindScheduleStudent,
+        FindScheduleLecturer,
         ChangeSchedule,
         AddLesson,
         GetHelpReg,

@@ -289,7 +289,7 @@ def reg_student(pool: ydb.QuerySessionPool, student: Student, id_group: int) -> 
         DECLARE $name AS Utf8;
         DECLARE $surname AS Utf8;
         DECLARE $father_name AS Utf8;
-        DECLARE $id_group AS Int16;
+        DECLARE $id_group AS Int64;
 
         INSERT INTO Student (name, surname, father_name, id_group)
         VALUES ($name, $surname, $father_name, $id_group);
@@ -298,7 +298,7 @@ def reg_student(pool: ydb.QuerySessionPool, student: Student, id_group: int) -> 
             '$name': student.name,
             '$surname': student.surname,
             '$father_name': student.father_name,
-            '$id_group': (id_group, ydb.PrimitiveType.Int16),
+            '$id_group': (id_group, ydb.PrimitiveType.Int64),
 
         },
     )
