@@ -40,10 +40,10 @@ def find_lesson_student(pool: QuerySessionPool, is_group_lesson: bool, search_at
     """
     if search_attr_name == 'today':
         search_attr_name = 'lesson_date'
-        search_attr_val = datetime.strptime(datetime.now().strftime('%d.%m.%Y'), '%d.%m.%Y')
+        search_attr_val = datetime.now().date()
     elif search_attr_name == 'tomorrow':
         search_attr_name = 'lesson_date'
-        search_attr_val = datetime.strptime((datetime.now() + timedelta(days=1)).strftime('%d.%m.%Y'), '%d.%m.%Y')
+        search_attr_val = (datetime.now() + timedelta(days=1)).date()
     dtype = 'Utf8' if search_attr_name == 'name' else 'Int64' if search_attr_name == 'id_lecturer' else 'Date'
     if is_group_lesson:
         return pool.execute_with_retries(f"""
@@ -101,7 +101,7 @@ def find_by_week_day_lesson_student(pool: ydb.QuerySessionPool, is_group_lesson:
                     WHERE PL.id IN 
                                 (SELECT PLS.id_personal_lesson FROM PersonalLessonStudent as PLS
                                 WHERE PLS.id_student = $id_student)
-                    AND PL.DateTime::GetDayOfWeek(lesson_date) = $lesson_date 
+                    AND (DateTime::GetDayOfWeek(PL.lesson_date)) = $lesson_date 
                     """
                                   ,
                                   {f'$lesson_date': week_days_dict[week_day],
@@ -124,10 +124,10 @@ def find_lesson_lecturer(pool: QuerySessionPool, table_name: str, search_attr_na
     """
     if search_attr_name == 'today':
         search_attr_name = 'lesson_date'
-        search_attr_val = datetime.strptime(datetime.now().strftime('%d.%m.%Y'), '%d.%m.%Y')
+        search_attr_val = datetime.now().date()
     elif search_attr_name == 'tomorrow':
         search_attr_name = 'lesson_date'
-        search_attr_val = datetime.strptime((datetime.now() + timedelta(days=1)).strftime('%d.%m.%Y'), '%d.%m.%Y')
+        search_attr_val = (datetime.now() + timedelta(days=1)).date()
 
     dtype = 'Utf8' if search_attr_name == 'name' else 'Date'
     return pool.execute_with_retries(f"""
@@ -215,8 +215,8 @@ def insert_help_tables_data(pool: ydb.QuerySessionPool, id_lesson: int, id_obj: 
     )
 
 
-def insert_lesson(user_data: list, lesson_data: list, is_student: bool, is_group_lesson: bool,
-                  pool: ydb.QuerySessionPool, lecturer_data: list[str] = None) -> None:
+def insert_lesson(pool: ydb.QuerySessionPool, lesson_data: list, is_student: bool, is_group_lesson: bool,
+                  user_data: list, lecturer_data: list[str] = None) -> None:
     """Функция вносит информацию о паре в БД"""
     if is_student:
         student = Student(*user_data)
@@ -289,3 +289,14 @@ def change_db_data(pool: ydb.QuerySessionPool, user_data_old: str, user_data_new
             '$id_group': (student.id_group, ydb.PrimitiveType.Int64),
         }
     )
+
+def make_readable(lessons_list: list)-> str:
+    text = ""
+    #тут возможно придется поменять или как-то доставать имя предмета,
+    #если он будет в нечитаемом виде
+    for lesson in lessons_list:
+        if lesson.auditorium != 'online':
+            text += f"{lesson.name} {lesson.type_l} в {lesson.time} в {lesson.auditorium} аудитории в корпусе {lesson.building}\n"
+        else:
+            text += f"{lesson.name} {lesson.type_l} в {lesson.time} {lesson.auditorium}\n"
+    return text

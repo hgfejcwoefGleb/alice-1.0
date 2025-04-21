@@ -1,11 +1,19 @@
 import sys
 from abc import ABC, abstractmethod
 import inspect
+from re import search
+from tokenize import group
+
+from tests.conftest import table_name
+
+from pythonProject.ydb.registration_ydb import select_id_student
 from request import Request
 from state import STATE_RESPONSE_KEY
 import intents
-from registration_ydb import *
-from input_output_lesson_ydb import change_db_data
+from ..Input_output_lesson import find_by_week_day
+from ..ydb.registration_ydb import *
+from ..ydb.input_output_lesson_ydb import change_db_data, find_lesson_student, make_readable, \
+    find_by_week_day_lesson_student, find_by_week_day_lesson_lecturer, find_lesson_lecturer, insert_lesson
 
 
 class Scene(ABC):
@@ -91,16 +99,14 @@ class Welcome(Scene):
             return GetHelpInGeneral()
         elif intents.REGISTRATE in request.intents or not is_registered(request):
             return Registration()
-        elif intents.FIND_SCHEDULE in request.intents and is_student(request):
-            return FindScheduleStudent()
-        elif intents.FIND_SCHEDULE in request.intents and not is_student(request):
-            return FindScheduleLecturer()
+        elif intents.FIND_SCHEDULE in request.intents:
+            return EnterIsGroupLesson()
         elif intents.CHANGE_USER_DATA in request.intents:
             return ChangeUserData()
         elif intents.CHANGE_SCHEDULE in request.intents:
             return ChangeSchedule()
         elif intents.ADD_LESSON in request.intents:
-            return AddLesson()
+            return EnterIsGroupLessonInsert()
         elif intents.GET_HELP_REG in request.intents:
             return GetHelpReg()
         elif intents.GET_HELP_FIND_SCH in request.intents:
@@ -275,23 +281,56 @@ class ChangeOneAttr(ChangeUserData):
         pass
 
 #написать отдельно для препода
+
+class EnterIsGroupLesson(Welcome):
+    def reply(self, request: Request, pool):
+        text = ("Предметы, которые хочешь найти связаны с конкретной образовательной программой "
+                "Или это это майноры, английский и другие предметы, которые проводятся "
+                "для разных групп?")
+        #тут с помощью интентов получаем дату, лектора и тп
+        search_attr_val = request['request']['command']
+        search_attr_name = request['request']['command']
+        return self.make_response(text=text, user_state_update={'search_attr_val': search_attr_val, 'search_attr_name': search_attr_name})
+
+    def handle_local_intents(self, request: Request):
+        if is_student(request):
+            return FindScheduleStudent()
+        else:
+            return FindScheduleLecturer()
+
+
 class FindScheduleStudent(Welcome):
     def reply(self, request: Request, pool):
+        search_attr_name = request['state']['user']['search_attr_name']
+        res = None
         text = 'Конечно, вот расписание: '
-        #остановился тут перед дописыванием функций по поиску
-        #привести результат в читаемый вид
-        if intents.FIND_SCHEDULE_TOMORROW in request.intents:
-            pass
-        elif intents.FIND_SCHEDULE_TODAY in request.intents:
-            pass
-        elif intents.FIND_SCHEDULE_DATE in request.intents:
-            pass
-        elif intents.FIND_SCHEDULE_LESSON_NAME in request.intents:
-            pass
-        elif intents.FIND_SCHEDULE_LECTURER in request.intents:
-            pass
-        elif intents.FIND_SCHEDULE_WEEK_DAY in request.intents:
-            pass
+        student_data = request['state']['user']['user_data'].split()
+        group_data = request['state']['user']['group_data'].split()
+        student = Student(*student_data)
+        group = Group(*list(group_data.split()))
+        #тут нужно перевести интент(ответ групповой предмет или нет) в bool переменную
+        #пока только для теста
+        is_group_lesson = request['request']['command']
+        id_student = select_id_student(pool, student)
+        id_group = select_id_group(pool, group)
+        if search_attr_name == 'today' or search_attr_name == 'tomorrow':
+            res = find_lesson_student(pool, is_group_lesson, search_attr_name, '', id_group, id_student)
+        elif search_attr_name == 'lesson_date':
+            #тут выковыриваем дату из первого запроса
+            search_attr_val = request['state']['user']['search_attr_val']
+            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
+        elif search_attr_name == 'name':
+            search_attr_val = request['state']['user']['search_attr_val']
+            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
+        elif search_attr_name == 'id_lecturer':
+            lecturer = Lecturer(*request['state']['user']['search_attr_val'].split())
+            search_attr_val = str(select_id_lecturer(pool, lecturer))
+            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
+        elif search_attr_name == 'week_day':
+            week_day = request['state']['user']['search_attr_val']
+            res = find_by_week_day_lesson_student(pool, is_group_lesson, id_group, id_student, week_day)
+        text = text + make_readable(res)
+        return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
         pass
@@ -299,13 +338,78 @@ class FindScheduleStudent(Welcome):
 
 
 class FindScheduleLecturer(Welcome):
-    pass
+    def reply(self, request: Request, pool):
+        text = 'Конечно, вот расписание: '
+        search_attr_name = request['state']['user']['search_attr_name']
+        search_attr_val = request['state']['user']['search_attr_val']
+        is_group_lesson = request['request']['command']
+        table_name = 'GroupLesson' if is_group_lesson else 'PersonalLesson'
+        lecturer_date = request['state']['user']['user_data'].split()
+        lecturer = Lecturer(*lecturer_date)
+        id_lecturer = select_id_lecturer(pool, lecturer)
+        if search_attr_name == 'week_day':
+            res = find_by_week_day_lesson_lecturer(pool, table_name, search_attr_val, id_lecturer)
+        else:
+            res = find_lesson_lecturer(pool, table_name, search_attr_name, search_attr_val, id_lecturer)
+        text = text + make_readable(res)
+        return self.make_response(text=text)
 
-class ChangeSchedule(Welcome):
-    pass
+    def handle_local_intents(self, request: Request):
+        pass
+
+class EnterIsGroupLessonInsert(Welcome):
+    def reply(self, request: Request, pool):
+        text = ("Предметы, которые хочешь найти связаны с конкретной образовательной программой "
+                "Или это это майноры, английский и другие предметы, которые проводятся "
+                "для разных групп?")
+        self.make_response(text=text)
+
+    def handle_local_intents(self, request: Request):
+        return EnterLessonData()
+
+class EnterLessonData(Welcome):
+    def __init__(self):
+        self.is_group_lesson = None
+
+    def reply(self, request: Request, pool):
+        self.is_group_lesson = request['request']['command']
+        #(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
+        #         id_student):
+        #возможно задать формат, по которому заполнять предмет
+        text = ('Теперь расскажи все про предмет, '
+                'который хочешь добавить. Например, Тервер семинар '
+                'у Александра Петровича Колданова с 12:30 до 14:00 12.04.2025 '
+                'на Костина в 303 аудитории')
+        return self.make_response(text=text)
+
+    def handle_local_intents(self, request: Request):
+        return AddLesson(self.is_group_lesson)
 
 
 class AddLesson(Welcome):
+    def __init__(self, is_group_lesson=None):
+        self.is_group_lesson = is_group_lesson
+
+    def reply(self, request: Request, pool):
+        #тут вычленяем данные предмета из интентов
+        lesson_data = request['request']['command'].split()
+        #тут по данным лектора находим его id, id_student
+        lecturer_data = lesson_data[2:4] #черновик#черновик
+        user_data = request['state']['user']['user_data'].split()#черновик
+        student = Student(*request['state']['user']['user_data'].split()) #черновик
+        #добавляем их в lesson_date
+        insert_lesson(pool, lesson_data, is_student(request), self.is_group_lesson, user_data, lecturer_data)
+        text = "Отлично, я запомнила новый предмет!"
+        return self.make_response(text=text)
+
+    def handle_local_intents(self, request: Request):
+        pass
+
+
+
+
+class ChangeSchedule(Welcome):
+    #нужно написать функции для взаимодействия с самой БД
     pass
 
 
@@ -337,14 +441,17 @@ SCENES = {
         InsertGroupData,
         InsertUserData,
         GetHelpInGeneral,
-        EnterNewData,
         ChangeUserData,
+        EnterNewData,
         ChangeAllData,
         ChangeOneAttr,
+        EnterIsGroupLesson,
         FindScheduleStudent,
         FindScheduleLecturer,
-        ChangeSchedule,
+        EnterIsGroupLessonInsert,
+        EnterLessonData,
         AddLesson,
+        ChangeSchedule,
         GetHelpReg,
         GetHelpFindSch,
         GetHelpChangeData,

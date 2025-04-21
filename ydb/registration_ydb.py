@@ -56,7 +56,7 @@ class Student:
         self.name = name
         self.surname = surname
         self.father_name = father_name
-        self.id_group = id_group
+        self.id_group = int(id_group)
 
 
 class Lecturer:
