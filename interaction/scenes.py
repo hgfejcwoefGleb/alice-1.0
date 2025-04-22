@@ -97,8 +97,16 @@ class Welcome(Scene):
     def handle_global_intents(self, request: Request):
         if intents.GET_HELP_IN_GENERAL in request.intents:
             return GetHelpInGeneral()
-        elif intents.REGISTRATE in request.intents or not is_registered(request):
+        elif intents.REGISTRATE in request.intents or not is_registered(request) or 'is_student' not in request['state']['user']:
             return Registration()
+        #проверить работает ли
+        elif 'user_data' not in request['state']['user']:
+            return IsStudent()
+        elif 'group_data' not in request['state']['user']:
+            if is_student(request):
+                return InsertGroupData()
+            else:
+                return IsStudent()
         elif intents.FIND_SCHEDULE in request.intents:
             return EnterIsGroupLesson()
         elif intents.CHANGE_USER_DATA in request.intents:
@@ -127,7 +135,7 @@ class Welcome(Scene):
     def reply(self, request: Request, pool):
         text = ('Привет! Я могу помочь с расписанием студентов Вышки.'
                 'Ты хочешь узнать своё расписание на сегодня, завтра или найти пару по названию? '
-                'Если хочешь узнать, что я умею, попроси справку')
+                'Если хочешь узнать, что я умею, попроси справку, сказав: Алиса, покажи справку')
         return self.make_response(text=text)  # прописать кнопки
 
 
@@ -143,10 +151,13 @@ class Registration(Welcome):
 
 class IsStudent(Registration):
     def reply(self, request: Request, pool):
-        is_student = request["request"]['command']  # здесь должно быть использование сущностей/интентов
+        is_student = ""
+        if 'is_student' not in request['state']['user']:
+            is_student = request["request"]['command']  # здесь должно быть использование сущностей/интентов
         text = ('Отлично, теперь расскажи про себя. '
                 'Как тебя зовут? Назови свои ФИО '
-                'Если ты студент, то назови еще номер группы')
+                'Если ты студент, то назови еще номер группы'
+                'Только в формате: "Иванов Иван Иванович 22БИ3"')
         return self.make_response(text=text, user_state_update={'is_student': is_student})
 
     def handle_local_intents(self, request: Request):
@@ -156,11 +167,14 @@ class IsStudent(Registration):
 class InsertGroupData(Registration):
     def reply(self, request: Request, pool):
         # тут нужно подумать, как мы будет менять или получать id Группы, если она зарегана
-        user_data = request["request"]['command']
+        user_data = ""
+        if 'user_data' not in request['state']['user']:
+            user_data = request["request"]['command']
         # здесь должно быть использование сущностей/интентов
         text = ('Хорошо, теперь назови год своего поступления,'
                 'образовательную программу, факультет, формат обучения '
-                'очный или нет и уровень образования')
+                'очный или нет и уровень образования в формате: '
+                '2022 Бизнес-информатика Информатики математики и компьютерных наук очный бакалавриат')
         return self.make_response(text=text, user_state_update={'user_data': user_data})
 
     def handle_local_intents(self, request: Request):
@@ -169,8 +183,7 @@ class InsertGroupData(Registration):
 
 class InsertUserData(Registration):
     def reply(self, request: Request, pool):
-        group_data = []
-        user_data = ""
+        group_data = ""
         if is_student(request):
             user_data = request['state']['user']['user_data']
             # тут проверяем зарегана группа или нет
@@ -184,7 +197,7 @@ class InsertUserData(Registration):
                 user_data = list(user_data.split())
             # меняем id_group в сессии, если студент
         else:
-            user_data = user_data.split()
+            user_data = request["request"]['command'].split()
         registration_user(user_data, pool, is_student(request), group_data.split())
         text = (
             'Очень приятно! Хочешь проверить свое расписание на сегодня, на какую-то другую дату или найти конкретный предмет?')
@@ -210,12 +223,20 @@ class GetHelpInGeneral(Welcome):
                 'Главное, чтобы фамилия была правильной. Чтобы поменять данные, '
                 'скажи: хочу поменять данные. Чтобы добавить пару, скажи: '
                 '"Алиса, добавь пару". Чтобы получить справку по конкретной функции:'
-                '"Алиса как мне изменить данные/зарегистрироваться/найти расписание/изменить расписание/добавить расписание"')
+                '"Алиса, как мне изменить данные/зарегистрироваться/найти расписание/изменить расписание/добавить расписание"')
         return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
-        pass
-
+        if intents.GET_HELP_REG in request.intents:
+            return GetHelpReg()
+        elif intents.GET_HELP_FIND_SCH in request.intents:
+            return  GetHelpFindSch()
+        elif intents.GET_HELP_CHANGE_DATA in request.intents:
+            return GetHelpChangeData()
+        elif intents.GET_HELP_CHANGE_SCH in request.intents:
+            return GetHelpChangeSch()
+        elif intents.GET_HELP_ADD_SCH in request.intents:
+            return GetHelpAddSch()
 
 class ChangeUserData(Welcome):
     def reply(self, request: Request, pool):
@@ -414,7 +435,13 @@ class ChangeSchedule(Welcome):
 
 
 class GetHelpReg(GetHelpInGeneral):
-    pass
+    def reply(self, request: Request, pool):
+        text=("1.Когда я спрошу студент ли ты? Просто ответь: 'Я студент' или 'Я преподаватель'"
+              "2.Когда захочу узнать про ФИО и номер группы, то если ты студент напиши: "
+              "'Валерий Иванов Евгеньевич 22БИ3', группу указывай именно в таком формате, а не"
+              "просто число"
+              "3.Когда захочу подробнее узнать про тебя, если ты студент, то напиши:"
+              "2022 Бизнес-информатика Информатики математики и компьютерных наук очный бакалавриат")
 
 
 class GetHelpFindSch(GetHelpInGeneral):
