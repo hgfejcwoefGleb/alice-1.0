@@ -12,3 +12,4 @@ class Request:
     @property
     def type(self):
         return self.request_body.get('request', {}).get('type')
+    

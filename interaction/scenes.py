@@ -1,18 +1,12 @@
-import sys
+
 from abc import ABC, abstractmethod
-import inspect
-from re import search
-from tokenize import group
-
-from tests.conftest import table_name
-
-from pythonProject.ydb.registration_ydb import select_id_student
+from registration_ydb import select_id_student
 from request import Request
 from state import STATE_RESPONSE_KEY
 import intents
-from ..Input_output_lesson import find_by_week_day
-from ..ydb.registration_ydb import *
-from ..ydb.input_output_lesson_ydb import change_db_data, find_lesson_student, make_readable, \
+
+from registration_ydb import *
+from input_output_lesson_ydb import change_db_data, find_lesson_student, make_readable, \
     find_by_week_day_lesson_student, find_by_week_day_lesson_lecturer, find_lesson_lecturer, insert_lesson
 
 
@@ -100,8 +94,8 @@ class Welcome(Scene):
         elif intents.REGISTRATE in request.intents or not is_registered(request) or 'is_student' not in request['state']['user']:
             return Registration()
         #проверить работает ли
-        elif 'user_data' not in request['state']['user']:
-            return IsStudent()
+        elif 'user_data' not in request['state']['user'] or 'user_data' in request['state']['user'] and len(request['state']['user']['user_data']) == 0:
+            return Registration()
         elif 'group_data' not in request['state']['user']:
             if is_student(request):
                 return InsertGroupData()
@@ -114,6 +108,7 @@ class Welcome(Scene):
         elif intents.CHANGE_SCHEDULE in request.intents:
             return ChangeSchedule()
         elif intents.ADD_LESSON in request.intents:
+            print('sdfksjdfkjskdfjksjd')
             return EnterIsGroupLessonInsert()
         elif intents.GET_HELP_REG in request.intents:
             return GetHelpReg()
@@ -152,8 +147,8 @@ class Registration(Welcome):
 class IsStudent(Registration):
     def reply(self, request: Request, pool):
         is_student = ""
-        if 'is_student' not in request['state']['user']:
-            is_student = request["request"]['command']  # здесь должно быть использование сущностей/интентов
+        if 'is_student' not in request['state']['user'] or 'is_student' in request['state']['user'] and len(request['state']['user']['is_student']) == 0:
+            is_student = request["request"]['command']# здесь должно быть использование сущностей/интентов
         text = ('Отлично, теперь расскажи про себя. '
                 'Как тебя зовут? Назови свои ФИО '
                 'Если ты студент, то назови еще номер группы'
@@ -168,13 +163,13 @@ class InsertGroupData(Registration):
     def reply(self, request: Request, pool):
         # тут нужно подумать, как мы будет менять или получать id Группы, если она зарегана
         user_data = ""
-        if 'user_data' not in request['state']['user']:
+        if 'user_data' not in request['state']['user'] or 'user_data' in request['state']['user'] and len(request['state']['user']['user_data']) == 0:
             user_data = request["request"]['command']
         # здесь должно быть использование сущностей/интентов
         text = ('Хорошо, теперь назови год своего поступления,'
                 'образовательную программу, факультет, формат обучения '
                 'очный или нет и уровень образования в формате: '
-                '2022 Бизнес-информатика Информатики математики и компьютерных наук очный бакалавриат')
+                '2022 Бизнес-информатика Факультет Информатики математики и компьютерных наук очный бакалавриат')
         return self.make_response(text=text, user_state_update={'user_data': user_data})
 
     def handle_local_intents(self, request: Request):
@@ -186,19 +181,30 @@ class InsertUserData(Registration):
         group_data = ""
         if is_student(request):
             user_data = request['state']['user']['user_data']
+            print('sdfjsdfj')
+            group_name = "".join(user_data.split()[3:])
             # тут проверяем зарегана группа или нет
-            group_data = request["request"]['command']
-            group = Group(*list(group_data.split()))
+            edu_year = request.intents[intents.ENTER_GROUP_DATA]['slots']['edu_year']['value']
+            edu_program = request.intents[intents.ENTER_GROUP_DATA]['slots']['edu_program']['value']
+            faculty = request.intents[intents.ENTER_GROUP_DATA]['slots']['faculty']['value']
+            edu_format = request.intents[intents.ENTER_GROUP_DATA]['slots']['edu_format']['value']
+            edu_level = request.intents[intents.ENTER_GROUP_DATA]['slots']['edu_level']['value']
+            group_data = [group_name, edu_year, edu_program, faculty, edu_format, edu_level]
+            group = Group(*list(group_data))
             if is_group_reg(pool, group):
                 id_group = select_id_group(pool, group)
                 user_data = user_data.split()[:3]
                 user_data.append(id_group)
             else:
-                user_data = list(user_data.split())
+                user_data = user_data.split()[:3]
+                user_data.append(-1)
             # меняем id_group в сессии, если студент
         else:
             user_data = request["request"]['command'].split()
-        registration_user(user_data, pool, is_student(request), group_data.split())
+        
+        print(user_data)
+        registration_user(user_data, pool, is_student(request), group_data)
+        user_data[-1] = str(user_data[-1])
         text = (
             'Очень приятно! Хочешь проверить свое расписание на сегодня, на какую-то другую дату или найти конкретный предмет?')
         return self.make_response(text=text,
@@ -380,10 +386,10 @@ class FindScheduleLecturer(Welcome):
 
 class EnterIsGroupLessonInsert(Welcome):
     def reply(self, request: Request, pool):
-        text = ("Предметы, которые хочешь найти связаны с конкретной образовательной программой "
+        text = ("Предметы, которые хочешь внести связаны с конкретной образовательной программой "
                 "Или это это майноры, английский и другие предметы, которые проводятся "
                 "для разных групп?")
-        self.make_response(text=text)
+        return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
         return EnterLessonData()
@@ -414,10 +420,16 @@ class AddLesson(Welcome):
     def reply(self, request: Request, pool):
         #тут вычленяем данные предмета из интентов
         lesson_data = request['request']['command'].split()
+        group_data = request['state']['user']['group_data']
+        group = Group(*group_data)
+        student = Student(*request['state']['user']['user_data'].split())
+        last_elem = int(select_id_group(pool, group) if self.is_group_lesson else select_id_student(pool, student))
+        lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, lesson_data[7], 'a', 'a', lesson_data[-1], last_elem]
+        #name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date
+        #Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025
         #тут по данным лектора находим его id, id_student
-        lecturer_data = lesson_data[2:4] #черновик#черновик
-        user_data = request['state']['user']['user_data'].split()#черновик
-        student = Student(*request['state']['user']['user_data'].split()) #черновик
+        lecturer_data = lesson_data[6:9] #черновик#черновик
+        user_data = request['state']['user']['user_data'].split()#черновик #черновик
         #добавляем их в lesson_date
         insert_lesson(pool, lesson_data, is_student(request), self.is_group_lesson, user_data, lecturer_data)
         text = "Отлично, я запомнила новый предмет!"
@@ -442,6 +454,10 @@ class GetHelpReg(GetHelpInGeneral):
               "просто число"
               "3.Когда захочу подробнее узнать про тебя, если ты студент, то напиши:"
               "2022 Бизнес-информатика Информатики математики и компьютерных наук очный бакалавриат")
+        return self.make_response(text=text)
+    
+    def handle_local_intents(self, request):
+        pass
 
 
 class GetHelpFindSch(GetHelpInGeneral):
@@ -457,7 +473,19 @@ class GetHelpChangeSch(GetHelpInGeneral):
 
 
 class GetHelpAddSch(GetHelpInGeneral):
-    pass
+    def reply(self, request, pool):
+         #(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
+        #         id_student):
+        text = ('1.Когда я спрошу про то, связаны ли предметы с твоей ОП или это майнор,'
+                'английский и тп, то просто ответь: "Групповой", если предмет связан с ОП'
+                'или "Индивидуальный"'
+                '2.Когда я попрошу указать все про предмет, то укажи его данные так:'
+                '"Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025"'
+                )
+        return self.make_response(text=text)
+    
+    def handle_local_intents(self, request):
+        pass
 
 
 SCENES = {

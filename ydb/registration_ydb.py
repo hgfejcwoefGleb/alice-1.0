@@ -40,7 +40,7 @@ class Group:
     def __init__(self, name, edu_year, edu_program, faculty, edu_format, edu_level):
         # print(name, edu_year, edu_program, faculty, edu_format, edu_level)
         self.name = name
-        self.edu_year = edu_year
+        self.edu_year = str(edu_year)
         self.edu_program = edu_program
         self.faculty = faculty
         self.edu_format = edu_format
@@ -246,7 +246,8 @@ def registration_user(user_data: list, pool: ydb.QuerySessionPool, is_student=Tr
             # Если группы нет, добавляем её
             reg_group(pool, group)
             #тут потенциально о
-            student.id_group = select_id_group(pool, group)  # Получаем id новой группы
+            student.id_group = select_id_group(pool, group)
+            # Получаем id новой группы
         if not is_student_reg(pool, student):
             reg_student(pool, student, student.id_group)
         else:
