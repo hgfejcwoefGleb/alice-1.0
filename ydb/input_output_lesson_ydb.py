@@ -236,6 +236,7 @@ def insert_lesson(pool: ydb.QuerySessionPool, lesson_data: list, is_student: boo
             lesson = PersonalLesson(*lesson_data)
             id_student = select_id_student(pool, student)
             if not is_lesson_reg(pool, lesson, id_student):
+                print(id_student)
                 insert_lesson_data(pool, lesson, id_student)
             id_personal_lesson = select_id_lesson(pool, lesson, id_student)
             insert_help_tables_data(pool, id_personal_lesson, id_student, is_group_lesson)
