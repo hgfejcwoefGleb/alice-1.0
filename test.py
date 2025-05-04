@@ -1,5 +1,4 @@
-from Registration import *
-from Input_output_lesson import *
+
 #(id, name, edu_year, edu_program, faculty, edu_format, edu_level)
 #(id, name, surname, father_name, id_group)
 #(id, name, surname, father_name)
@@ -39,3 +38,16 @@ from Input_output_lesson import *
 #INSERT INTO PersonalLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper)
 #insert into GroupLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group)
 #insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student)
+d = {
+          "slots": {
+            "group_lesson": {
+              "type": "YANDEX.STRING",
+              "tokens": {
+                "start": 0,
+                "end": 1
+              },
+              "value": "групповой"
+            }
+          }
+        }
+print(d['slots'].get('group_lesson', 0))

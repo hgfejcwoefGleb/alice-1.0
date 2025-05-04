@@ -108,7 +108,6 @@ class Welcome(Scene):
         elif intents.CHANGE_SCHEDULE in request.intents:
             return ChangeSchedule()
         elif intents.ADD_LESSON in request.intents:
-            print('sdfksjdfkjskdfjksjd')
             return EnterIsGroupLessonInsert()
         elif intents.GET_HELP_REG in request.intents:
             return GetHelpReg()
@@ -181,7 +180,6 @@ class InsertUserData(Registration):
         group_data = ""
         if is_student(request):
             user_data = request['state']['user']['user_data']
-            print('sdfjsdfj')
             group_name = "".join(user_data.split()[3:])
             # тут проверяем зарегана группа или нет
             edu_year = request.intents[intents.ENTER_GROUP_DATA]['slots']['edu_year']['value']
@@ -201,8 +199,6 @@ class InsertUserData(Registration):
             # меняем id_group в сессии, если студент
         else:
             user_data = request["request"]['command'].split()
-        
-        print(user_data)
         registration_user(user_data, pool, is_student(request), group_data)
         user_data[-1] = str(user_data[-1])
         text = (
@@ -300,7 +296,6 @@ class ChangeOneAttr(ChangeUserData):
         new_data = old_data.split()
         new_data[self.attr_dict[self.change_attr]] = new_name
         new_data = " ".join(new_data)
-        print(new_data)
         change_db_data(pool, old_data, new_data)
         return self.make_response(text=text, user_state_update={'user_data': new_data})
 
@@ -399,17 +394,16 @@ class EnterLessonData(Welcome):
         self.is_group_lesson = None
 
     def reply(self, request: Request, pool):
-        self.is_group_lesson = request['request']['command']
+        self.is_group_lesson = True if request.intents[intents.ENTER_IS_GROUP_LESSON_INSERT]['slots'].get('group_lesson', 0) != 0 else False
         #(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
         #         id_student):
         #возможно задать формат, по которому заполнять предмет
         text = ('Теперь расскажи все про предмет, '
-                'который хочешь добавить. Например, Тервер семинар '
-                'у Александра Петровича Колданова с 12:30 до 14:00 12.04.2025 '
-                'на Костина в 303 аудитории')
+                'который хочешь добавить. Например, "Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025"')
         return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
+        print(self.is_group_lesson)
         return AddLesson(self.is_group_lesson)
 
 
@@ -424,11 +418,12 @@ class AddLesson(Welcome):
         group = Group(*group_data)
         student = Student(*request['state']['user']['user_data'].split())
         last_elem = int(select_id_group(pool, group) if self.is_group_lesson else select_id_student(pool, student))
-        lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, lesson_data[7], 'a', 'a', lesson_data[-1], last_elem]
+        lecturer_data = lesson_data[6:9]
+        lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, ":".join(lesson_data[9:11]) + "-" + ":".join(lesson_data[11:13]), True, True, lesson_data[-1], last_elem]
         #name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date
         #Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025
         #тут по данным лектора находим его id, id_student
-        lecturer_data = lesson_data[6:9] #черновик#черновик
+        #черновик#черновик
         user_data = request['state']['user']['user_data'].split()#черновик #черновик
         #добавляем их в lesson_date
         insert_lesson(pool, lesson_data, is_student(request), self.is_group_lesson, user_data, lecturer_data)
