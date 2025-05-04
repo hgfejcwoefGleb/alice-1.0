@@ -1,3 +1,8 @@
+import ydb
+from models import *
+from typing import Union
+from datetime import datetime
+
 def get_group_records(pool: ydb.QuerySessionPool, group: Group, is_exist_check: bool)-> list[ydb.convert._Row]:
     attr = 'id'
     if is_exist_check:

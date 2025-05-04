@@ -1,5 +1,5 @@
 from ydb import QuerySessionPool
-
+from obj_queries import *
 from registration_ydb import *
 import ydb
 from typing import Union
@@ -219,31 +219,37 @@ def insert_lesson(pool: ydb.QuerySessionPool, lesson_data: list, is_student: boo
                   user_data: list, lecturer_data: list[str] = None) -> None:
     """Функция вносит информацию о паре в БД"""
     if is_student:
+        id_lecturer = lesson_data[4]
         student = Student(*user_data)
         lecturer = Lecturer(*lecturer_data)
         # проверяем есть ли лектор в БД
         if not is_lecturer_reg(pool, lecturer):
             reg_lecturer(pool, lecturer)
+            id_lecturer = select_id_lecturer(pool, lecturer)
         if is_group_lesson:
             # Логика для групповых занятий
             lesson = GroupLesson(*lesson_data)
+            lesson.id_lecturer = id_lecturer
             if not is_lesson_reg(pool, lesson, student.id_group):
                 insert_lesson_data(pool, lesson, student.id_group)
                 id_group_lesson = select_id_lesson(pool, lesson, lesson.id_group)
                 insert_help_tables_data(pool, id_group_lesson, student.id_group, is_group_lesson)
-        else:
+        elif not is_group_lesson:
             # Логика для персональных занятий
             lesson = PersonalLesson(*lesson_data)
+            lesson.id_lecturer = id_lecturer
             id_student = select_id_student(pool, student)
             if not is_lesson_reg(pool, lesson, id_student):
                 insert_lesson_data(pool, lesson, id_student)
             id_personal_lesson = select_id_lesson(pool, lesson, id_student)
+            
             insert_help_tables_data(pool, id_personal_lesson, id_student, is_group_lesson)
     else:
         # Логика для преподавателей
-        lecturer = Lecturer(*user_data)
+        lecturer = Lecturer(*user_data[:3])
         if is_group_lesson:
             lesson = GroupLesson(*lesson_data)
+            #[ERROR] IndexError: list index out of range
             id_lecturer = select_id_lecturer(pool, lecturer)
             lesson.id_lecturer = id_lecturer
             connect_lecturer_with_group(pool, lesson.id_group, id_lecturer)
@@ -289,13 +295,4 @@ def change_db_data(pool: ydb.QuerySessionPool, user_data_old: str, user_data_new
         }
     )
 
-def make_readable(lessons_list: list)-> str:
-    text = ""
-    #тут возможно придется поменять или как-то доставать имя предмета,
-    #если он будет в нечитаемом виде
-    for lesson in lessons_list:
-        if lesson.auditorium != 'online':
-            text += f"{lesson.name} {lesson.type_l} в {lesson.time} в {lesson.auditorium} аудитории в корпусе {lesson.building}\n"
-        else:
-            text += f"{lesson.name} {lesson.type_l} в {lesson.time} {lesson.auditorium}\n"
-    return text
+
