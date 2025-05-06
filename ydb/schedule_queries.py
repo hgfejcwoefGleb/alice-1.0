@@ -249,7 +249,7 @@ def insert_lesson(pool: ydb.QuerySessionPool, lesson_data: list, is_student: boo
         lecturer = Lecturer(*user_data[:3])
         if is_group_lesson:
             lesson = GroupLesson(*lesson_data)
-            #[ERROR] IndexError: list index out of range
+            
             id_lecturer = select_id_lecturer(pool, lecturer)
             lesson.id_lecturer = id_lecturer
             connect_lecturer_with_group(pool, lesson.id_group, id_lecturer)

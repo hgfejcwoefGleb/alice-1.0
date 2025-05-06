@@ -31,7 +31,7 @@ class GroupLesson(Lesson):
 
 
 class Group:
-    def __init__(self, name, edu_year, edu_program, faculty, edu_format, edu_level):
+    def __init__(self, name, edu_year, edu_program=None, faculty=None, edu_format=None, edu_level=None):
         # print(name, edu_year, edu_program, faculty, edu_format, edu_level)
         self.name = name
         self.edu_year = str(edu_year)
@@ -46,17 +46,17 @@ class Group:
 
 
 class Student:
-    def __init__(self, name, surname, father_name, id_group):
-        self.name = name
+    def __init__(self, surname, name, father_name, id_group):
         self.surname = surname
+        self.name = name
         self.father_name = father_name
         self.id_group = int(id_group)
 
 
 class Lecturer:
-    def __init__(self, name, surname, father_name):
-        self.name = name
+    def __init__(self, surname, name, father_name):
         self.surname = surname
+        self.name = name
         self.father_name = father_name
 
 
