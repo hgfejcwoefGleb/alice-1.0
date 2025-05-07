@@ -50,4 +50,7 @@ d = {
             }
           }
         }
-print(d['slots'].get('group_lesson', 0))
+l = [1, 2, 3]
+r = [1, 2, 3, 4, 5]
+print(l.extend(r))
+print(l)

@@ -101,8 +101,13 @@ class Welcome(Scene):
                 return InsertGroupData()
             else:
                 return IsStudent()
-        elif intents.FIND_SCHEDULE in request.intents:
-            return EnterIsGroupLesson()
+        #переписать логику для поиска, мб ищем по слотам
+        elif intents.FIND_SCHEDULE_LESSON_NAME in request.intents:
+            return FindScheduleLessonName()
+        elif intents.FIND_SCHEDULE in request.intents and is_student(request):
+            return FindScheduleStudent()
+        elif intents.FIND_SCHEDULE in request.intents and not is_student(request):
+            return FindScheduleLecturer()
         elif intents.CHANGE_USER_DATA in request.intents:
             return ChangeUserData()
         elif intents.CHANGE_SCHEDULE in request.intents:
@@ -305,6 +310,7 @@ class ChangeOneAttr(ChangeUserData):
 
 #написать отдельно для препода
 
+#он будто не нужен
 class EnterIsGroupLesson(Welcome):
     def reply(self, request: Request, pool):
         text = ("Предметы, которые хочешь найти связаны с конкретной образовательной программой "
@@ -321,37 +327,83 @@ class EnterIsGroupLesson(Welcome):
         else:
             return FindScheduleLecturer()
 
+class FindScheduleLessonName(Welcome):
+    def reply(self, request, pool):
+        text = ("Хорошо, назови предмет, по которому хочешь найти пары")
+        return self.make_response(text=text)
+    
+    def handle_local_intents(self, request):
+        if is_student(request):
+            return FindScheduleByNameStudent()
+        return FindScheduleByNameLecturer()
+
+class FindScheduleByNameStudent(Welcome):
+    def reply(self, request, pool):
+        res = None
+        search_attr_name = 'name'
+        search_attr_val = request['request']['command']
+        student_data = request['state']['user']['user_data'].split()
+        group_data = request['state']['user']['group_data'].split()
+        student = Student(*student_data)
+        group = Group(*list(group_data.split()))
+        id_student = select_id_student(pool, student)
+        id_group = select_id_group(pool, group)
+        res = find_lesson_student(pool, True, search_attr_name, search_attr_val, id_group, id_student)
+        res.extend(find_lesson_student(pool, False, search_attr_name, search_attr_val, id_group, id_student))
+        text = 'Конечно, вот расписание: '
+        text = text + make_readable(res)
+        return self.make_response(text=text)
+    
+    def handle_local_intents(self, request):
+        pass
+
+class FindScheduleByNameLecturer(Welcome):
+    def reply(self, request, pool):
+        text = 'Конечно, вот расписание: '
+        search_attr_name = 'name'
+        search_attr_val = request['request']['command']
+        lecturer_date = request['state']['user']['user_data'].split()
+        lecturer = Lecturer(*lecturer_date)
+        id_lecturer = select_id_lecturer(pool, lecturer)
+        res = find_lesson_lecturer(pool, 'GroupLesson', search_attr_name, search_attr_val, id_lecturer)
+        res.extend(find_lesson_lecturer(pool, 'PersonalLesson', search_attr_name, search_attr_val, id_lecturer))
+        text = text + make_readable(res)
+        return self.make_response(text=text)
+    
+    def handle_local_intents(self, request):
+        pass
 
 class FindScheduleStudent(Welcome):
     def reply(self, request: Request, pool):
-        search_attr_name = request['state']['user']['search_attr_name']
+        search_attr_name = "".join(request.intents[intents.FIND_SCHEDULE]['slots'].keys())
         res = None
         text = 'Конечно, вот расписание: '
         student_data = request['state']['user']['user_data'].split()
         group_data = request['state']['user']['group_data'].split()
         student = Student(*student_data)
         group = Group(*list(group_data.split()))
-        #тут нужно перевести интент(ответ групповой предмет или нет) в bool переменную
-        #пока только для теста
-        is_group_lesson = request['request']['command']
         id_student = select_id_student(pool, student)
         id_group = select_id_group(pool, group)
         if search_attr_name == 'today' or search_attr_name == 'tomorrow':
-            res = find_lesson_student(pool, is_group_lesson, search_attr_name, '', id_group, id_student)
+            res = find_lesson_student(pool, True, search_attr_name, '', id_group, id_student)
+            res.extend(find_lesson_student(pool, False, search_attr_name, '', id_group, id_student))
         elif search_attr_name == 'lesson_date':
             #тут выковыриваем дату из первого запроса
-            search_attr_val = request['state']['user']['search_attr_val']
-            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
-        elif search_attr_name == 'name':
-            search_attr_val = request['state']['user']['search_attr_val']
-            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
+            search_attr_val = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
+            res = find_lesson_student(pool, True, search_attr_name, search_attr_val, id_group, id_student)
+            res.extend(find_lesson_student(pool, False, search_attr_name, search_attr_val, id_group, id_student))
+        #elif search_attr_name == 'name': пока отдельный класс
+        #    search_attr_val = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
+        #    res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
         elif search_attr_name == 'id_lecturer':
-            lecturer = Lecturer(*request['state']['user']['search_attr_val'].split())
+            lecturer = Lecturer(*request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value'].split())
             search_attr_val = str(select_id_lecturer(pool, lecturer))
-            res = find_lesson_student(pool, is_group_lesson, search_attr_name, search_attr_val, id_group, id_student)
+            res = find_lesson_student(pool, True, search_attr_name, search_attr_val, id_group, id_student)
+            res.extend(find_lesson_student(pool, False, search_attr_name, search_attr_val, id_group, id_student))
         elif search_attr_name == 'week_day':
-            week_day = request['state']['user']['search_attr_val']
-            res = find_by_week_day_lesson_student(pool, is_group_lesson, id_group, id_student, week_day)
+            week_day = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
+            res = find_by_week_day_lesson_student(pool, True, id_group, id_student, week_day)
+            res.extend(find_by_week_day_lesson_student(pool, False, id_group, id_student, week_day))
         text = text + make_readable(res)
         return self.make_response(text=text)
 
@@ -363,17 +415,17 @@ class FindScheduleStudent(Welcome):
 class FindScheduleLecturer(Welcome):
     def reply(self, request: Request, pool):
         text = 'Конечно, вот расписание: '
-        search_attr_name = request['state']['user']['search_attr_name']
-        search_attr_val = request['state']['user']['search_attr_val']
-        is_group_lesson = request['request']['command']
-        table_name = 'GroupLesson' if is_group_lesson else 'PersonalLesson'
+        search_attr_name = "".join(request.intents[intents.FIND_SCHEDULE]['slots'].keys())
+        search_attr_val = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
         lecturer_date = request['state']['user']['user_data'].split()
         lecturer = Lecturer(*lecturer_date)
         id_lecturer = select_id_lecturer(pool, lecturer)
         if search_attr_name == 'week_day':
-            res = find_by_week_day_lesson_lecturer(pool, table_name, search_attr_val, id_lecturer)
+            res = find_by_week_day_lesson_lecturer(pool, 'GroupLesson', search_attr_val, id_lecturer)
+            res.extend(find_by_week_day_lesson_lecturer(pool, 'PersonalLesson', search_attr_val, id_lecturer))
         else:
-            res = find_lesson_lecturer(pool, table_name, search_attr_name, search_attr_val, id_lecturer)
+            res = find_lesson_lecturer(pool, 'GroupLesson', search_attr_name, search_attr_val, id_lecturer)
+            res.extend(find_lesson_lecturer(pool, 'PersonalLesson', search_attr_name, search_attr_val, id_lecturer))
         text = text + make_readable(res)
         return self.make_response(text=text)
 
@@ -498,12 +550,15 @@ class GetHelpReg(GetHelpInGeneral):
     def handle_local_intents(self, request):
         pass
 
-
+#написать поиск по названию предмета
 class GetHelpFindSch(GetHelpInGeneral):
     def reply(self, request, pool):
-        text = ('1.Когда я спрошу про то, связаны ли предметы с твоей ОП или это майнор,'
-                'английский и тп, то просто ответь: "Групповой", если предмет связан с ОП'
-                'или "Индивидуальный"')
+        text = ('1.Чтобы найти пары на сегодня/завтра спроси: "Алиса, какие пары сегодня/завтра?"'
+                '2.Чтобы найти пары на день недели: "Какие пары во вторник?"'
+                '3.Чтобы найти пары на конкретную дату: "Какие пары 21 апреля?"'
+                '4.Чтобы узнать пары у конкретного препода: "Когда пары с Ивановым Иваном Ивановичем?"'
+                '5.Чтобы узнать пары по названию предмета: Хочу узнать когда у меня конкретный предмет'
+                'Когда я спрошу название предмета, то напиши его так, как указывал придобавлении: "Матанализ"')
         return self.make_response(text=text)
 
 
@@ -544,6 +599,7 @@ SCENES = {
         ChangeAllData,
         ChangeOneAttr,
         EnterIsGroupLesson,
+        FindScheduleLessonName,
         FindScheduleStudent,
         FindScheduleLecturer,
         EnterIsGroupLessonInsert,
@@ -557,7 +613,6 @@ SCENES = {
         GetHelpAddSch,
         IsGroupOfLectReg,
         RegGroupLect
-        
     ]
 }
 
