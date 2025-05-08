@@ -43,7 +43,8 @@ def handler(event, context):
   #
   #                                            '303', 1, '12:00', True, True, '12.04.2004', 1], False, False, pool, ['Алексей', 'Вбивалкин', 'Петрович'])
   #работает
-  #res = ioy.find_lesson_student(pool, is_group_lesson=True, 'name', 'Матан', id_group=1, id_student=1)
+  
+  res = ioy.find_lesson_student(pool, is_group_lesson=True, 'name', 'Матан', id_group=1, id_student=1)
   #работает
   #res = ioy.find_lesson_student(pool, True, 'id_lecturer', 1, 1, 1)
   #my_date = datetime.strptime('12.04.2004', '%d.%m.%Y').date()
