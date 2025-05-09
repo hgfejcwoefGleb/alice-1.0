@@ -38,19 +38,3 @@
 #INSERT INTO PersonalLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper)
 #insert into GroupLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group)
 #insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student)
-d = {
-          "slots": {
-            "group_lesson": {
-              "type": "YANDEX.STRING",
-              "tokens": {
-                "start": 0,
-                "end": 1
-              },
-              "value": "групповой"
-            }
-          }
-        }
-l = [1, 2, 3]
-r = [1, 2, 3, 4, 5]
-print(l.extend(r))
-print(l)

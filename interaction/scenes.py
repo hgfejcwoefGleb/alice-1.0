@@ -428,8 +428,18 @@ class FindScheduleLecturer(Welcome):
     def reply(self, request: Request, pool):
         text = 'Конечно, вот расписание: '
         search_attr_name = "".join(request.intents[intents.FIND_SCHEDULE]['slots'].keys())
-        search_attr_val = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
-        lecturer_date = request['state']['user']['user_data'].split()
+        if search_attr_name == "lesson_date":
+            search_attr_dict = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
+            day = search_attr_dict['day']
+            month = search_attr_dict['month']
+            if 'year' not in search_attr_dict.keys():
+                year = datetime.now().year
+            else:
+                year = search_attr_dict['year']
+            search_attr_val = datetime.strptime(f"{day}.{month}.{year}", '%d.%m.%Y').date()
+        else:
+            search_attr_val = request.intents[intents.FIND_SCHEDULE]['slots'][search_attr_name]['value']
+        lecturer_date = request['state']['user']['user_data'].split()[:3]
         lecturer = Lecturer(*lecturer_date)
         id_lecturer = select_id_lecturer(pool, lecturer)
         if search_attr_name == 'week_day':
