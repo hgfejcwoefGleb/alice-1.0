@@ -86,7 +86,6 @@ def is_student(request: Request):  # перепишем с использова�
 
 
 # переписать без elif
-
 class Welcome(Scene):
     def handle_global_intents(self, request: Request):
         if intents.GET_HELP_IN_GENERAL in request.intents:
@@ -124,9 +123,6 @@ class Welcome(Scene):
             return GetHelpChangeSch()
         elif intents.GET_HELP_ADD_SCH in request.intents:
             return GetHelpAddSch()
-        # только для теста потом убрать
-        else:
-            return ChangeUserData()
 
     def handle_local_intents(self, request: Request):
         pass
@@ -137,6 +133,12 @@ class Welcome(Scene):
                 'Если хочешь узнать, что я умею, попроси справку, сказав: Алиса, покажи справку')
         return self.make_response(text=text)  # прописать кнопки
 
+class Fallback(Welcome):
+    def reply(self, request, pool):
+        return self.make_response(text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею")
+    
+    def handle_local_intents(self, request):
+        pass
 
 class Registration(Welcome):
     def reply(self, request: Request, pool):
@@ -503,6 +505,7 @@ class IsGroupOfLectReg(Welcome):
         if request['state']['user']['is_group_reg'] == 'True':
             return AddLesson()
         return RegGroupLect()
+
 
 class RegGroupLect(Welcome):
     def reply(self, request, pool):

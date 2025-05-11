@@ -14,6 +14,13 @@ week_days_dict = {
     'saturday': 6,
     'sunday': 7
 }
+
+module_boundaries = {
+    1: [datetime.date(9, 1), datetime.date(10, 24)],
+    2: [datetime.date(10, 25), datetime.date(12, 30)], 
+    3: [datetime.date(1, 8), datetime.date(3, 24)],
+    4: [datetime.date(3, 25), datetime.date(6, 20)]
+}
 # Функции для поиска информации
 # везде смотрим на ID студента
 # Продумать,чтобы пользователь вносил даты списком и они добавлялись в таблицу
@@ -215,6 +222,10 @@ def insert_help_tables_data(pool: ydb.QuerySessionPool, id_lesson: int, id_obj: 
     )
 
 
+#получаем текущий модуль
+#While data_b1 <= lesson_date <= datab2 и is_weekly
+#data += 7 дней проверка на праздник
+#insert 
 def insert_lesson(pool: ydb.QuerySessionPool, lesson_data: list, is_student: bool, is_group_lesson: bool,
                   user_data: list, lecturer_data: list[str] = None) -> None:
     """Функция вносит информацию о паре в БД"""
