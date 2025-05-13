@@ -131,7 +131,22 @@ class Welcome(Scene):
         text = ('Привет! Я могу помочь с расписанием студентов Вышки.'
                 'Ты хочешь узнать своё расписание на сегодня, завтра или найти пару по названию? '
                 'Если хочешь узнать, что я умею, попроси справку, сказав: Алиса, покажи справку')
-        return self.make_response(text=text)  # прописать кнопки
+        return self.make_response(text=text, buttons=[
+        {
+            "title": "Расписание ЕЛК",
+            "payload": {},
+            "url": "https://lk.hse.ru/schedule",
+            "hide": True
+        },
+        {
+            "title": "Расписание на завтра",
+            "hide": True
+        },
+        {
+            "title": "Расписание на сегодня",
+            "hide": True
+        }
+    ],)  # прописать кнопки
 
 class Fallback(Welcome):
     def reply(self, request, pool):
@@ -346,7 +361,7 @@ class FindScheduleByNameStudent(Welcome):
         search_attr_val = request['request']['command']
         student_data = request['state']['user']['user_data'].split()
         #только для теста split()
-        group_data = request['state']['user']['group_data'].split()
+        group_data = request['state']['user']['group_data']
         student = Student(*student_data)
         group = Group(*group_data)
         id_student = select_id_student(pool, student)
@@ -385,7 +400,7 @@ class FindScheduleStudent(Welcome):
         text = 'Конечно, вот расписание: '
         student_data = request['state']['user']['user_data'].split()
         #только для теста split()
-        group_data = request['state']['user']['group_data'].split()
+        group_data = request['state']['user']['group_data']
         student = Student(*student_data)
         group = Group(*group_data)
         id_student = select_id_student(pool, student)
