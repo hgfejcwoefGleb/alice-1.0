@@ -71,6 +71,8 @@ class Scene(ABC):
             webhook_response["session_state"].update(state)
         if user_state_update is not None:
             webhook_response["user_state_update"].update(user_state_update)
+            if len(user_state_update) == 0:
+                webhook_response["user_state_update"] = {}
         return webhook_response
 
     """Дальше нужно прописать сцены, которые есть у нашего навыка"""
@@ -90,6 +92,8 @@ class Welcome(Scene):
     def handle_global_intents(self, request: Request):
         if intents.GET_HELP_IN_GENERAL in request.intents:
             return GetHelpInGeneral()
+        elif intents.RESET_DATA in request.intents:
+            return ResetData()
         elif intents.REGISTRATE in request.intents or not is_registered(request) or 'is_student' not in request['state']['user']:
             return Registration()
         #проверить работает ли
@@ -143,23 +147,45 @@ class Welcome(Scene):
             "hide": True
         },
         {
-            "title": "Расписание на сегодня",
+            "title": "Какие пары сегодня",
             "hide": True
         }
     ],)  # прописать кнопки
 
-class Fallback(Welcome):
+class ResetData(Welcome):
     def reply(self, request, pool):
-        return self.make_response(text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею")
+        text = "Данные успешно сброшены"
+        return self.make_response(text=text, user_state_update={})
     
     def handle_local_intents(self, request):
         pass
+
+class Fallback(Welcome):
+    def reply(self, request, pool):
+        return self.make_response(text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею", 
+                                  buttons=[{
+            "title": "Добавь предмет",
+            "hide": True
+        },
+                                    ])
+    
+    def handle_local_intents(self, request):
+        if intents.ADD_LESSON in request.intents:
+            return EnterIsGroupLessonInsert()
+        
 
 class Registration(Welcome):
     def reply(self, request: Request, pool):
         text = ('Чтобы узнать твое расписание мне нужно с тобой лучше познакомиться. '
                 'Ты студент или преподаватель?')
-        return self.make_response(text=text)
+        return self.make_response(text=text, buttons=[
+            {"title": "Студент",
+             "hide": True},
+            {
+                "title": "Преподаватель",
+                "hide": True
+            }
+        ])
 
     def handle_local_intents(self, request: Request):
         return IsStudent()
@@ -248,7 +274,12 @@ class GetHelpInGeneral(Welcome):
                 'скажи: хочу поменять данные. Чтобы добавить пару, скажи: '
                 '"Алиса, добавь пару". Чтобы получить справку по конкретной функции:'
                 '"Алиса, как мне изменить данные/зарегистрироваться/найти расписание/изменить расписание/добавить расписание"')
-        return self.make_response(text=text)
+        return self.make_response(text=text, buttons=[
+            {
+                'title': "Добавь предмет",
+                'hide': True
+            }
+        ])
 
     def handle_local_intents(self, request: Request):
         if intents.GET_HELP_REG in request.intents:
@@ -261,6 +292,9 @@ class GetHelpInGeneral(Welcome):
             return GetHelpChangeSch()
         elif intents.GET_HELP_ADD_SCH in request.intents:
             return GetHelpAddSch()
+        elif intents.ADD_LESSON in request.intents:
+            return EnterIsGroupLessonInsert()
+        
 
 class ChangeUserData(Welcome):
     def reply(self, request: Request, pool):
@@ -336,7 +370,16 @@ class EnterIsGroupLesson(Welcome):
         #тут с помощью интентов получаем дату, лектора и тп
         search_attr_val = request['request']['command']
         search_attr_name = request['request']['command']
-        return self.make_response(text=text, user_state_update={'search_attr_val': search_attr_val, 'search_attr_name': search_attr_name})
+        return self.make_response(text=text, user_state_update={'search_attr_val': search_attr_val, 'search_attr_name': search_attr_name}, buttons=[
+            {
+                'title': "Групповой",
+                'hide': True
+            },
+            {
+                'title': "Индивидуальный",
+                'hide': True
+            }
+        ])
 
     def handle_local_intents(self, request: Request):
         if is_student(request):
@@ -476,7 +519,17 @@ class EnterIsGroupLessonInsert(Welcome):
         text = ("Предметы, которые хочешь внести связаны с конкретной образовательной программой "
                 "Или это это майноры, английский и другие предметы, которые проводятся "
                 "для разных групп?")
-        return self.make_response(text=text)
+        return self.make_response(text=text, 
+                                  buttons=[
+            {
+                'title': "Групповой",
+                'hide': True
+            },
+            {
+                'title': "Индивидуальный",
+                'hide': True
+            }
+        ])
 
     def handle_local_intents(self, request: Request):
         return EnterLessonData()
@@ -553,8 +606,16 @@ class AddLesson(Welcome):
             last_elem = int(select_id_group(pool, group) if is_group_lesson else select_id_student(pool, student))
         else:
             last_elem = int(select_id_group(pool, group) if is_group_lesson else -1)
-        lecturer_data = lesson_data[6:9]
-        lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, "".join(lesson_data[9:11]) + "".join(lesson_data[11:12]), True, True, lesson_data[-1], last_elem]
+        print(len(lesson_data))
+        diff = len(lesson_data) - 13
+        lecturer_data = lesson_data[6+diff:9+diff]
+        ##Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025
+        if len(lesson_data) == 13:
+            lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, "".join(lesson_data[9:11]) + "".join(lesson_data[11:12]), True, True, lesson_data[-1], last_elem]
+        else:
+            
+            lesson_data = ["".join(lesson_data[0:diff + 1]), lesson_data[1 + diff], lesson_data[3 + diff], lesson_data[4 + diff], 0, "".join(lesson_data[9+diff:11+diff]) + "".join(lesson_data[11+diff:12+diff]), True, True, lesson_data[-1], last_elem]
+
         #name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date
         #Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025
         #тут по данным лектора находим его id, id_student
@@ -653,7 +714,8 @@ SCENES = {
         GetHelpFindSch,
         GetHelpChangeData,
         GetHelpChangeSch,
-        GetHelpAddSch
+        GetHelpAddSch, 
+        ResetData
     ]
 }
 

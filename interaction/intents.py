@@ -23,3 +23,4 @@ CHANGE_ALL_DATA = 'change_all_data'
 ENTER_IS_GROUP_LESSON_INSERT = 'enter_is_group_lesson_insert'
 ENTER_LESSON_DATA = 'enter_lesson_data'
 ENTER_GROUP_DATA = 'enter_group_data'
+RESET_DATA = "reset_data"

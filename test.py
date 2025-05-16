@@ -37,8 +37,7 @@
 #                                                 '303', 2, '12:00', 'вторник', True, '12.04.2004',1], False, False)
 #INSERT INTO PersonalLesson(name, type, building, auditorium, id_lecturer, time, week_day, is_upper)
 #insert into GroupLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_group)
-#insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student)
-import itertools
-p_values = range(0, 7)  # от 0 до 6
-q_values = range(0, 7)
-print(len(list(itertools.product(p_values, q_values))))
+#insert into PersonalLesson(ID, name, type_l, building, auditorium, id_lecturer, time, week_day, is_upper, id_student)l = {
+        
+l = {'l': 'sdf'}
+print(list(l.values()) == ["sdf"])
