@@ -413,6 +413,8 @@ class FindScheduleByNameStudent(Welcome):
         res.extend(find_lesson_student(pool, False, search_attr_name, search_attr_val, id_group, id_student))
         text = 'Конечно, вот расписание: '
         text = text + make_readable(res)
+        if len(text) == len('Конечно, вот расписание: '):
+            text = 'У тебя нет пар'
         return self.make_response(text=text)
     
     def handle_local_intents(self, request):
@@ -431,6 +433,8 @@ class FindScheduleByNameLecturer(Welcome):
         print(find_lesson_lecturer(pool, 'PersonalLesson', search_attr_name, search_attr_val, id_lecturer))
         res.extend(find_lesson_lecturer(pool, 'PersonalLesson', search_attr_name, search_attr_val, id_lecturer))
         text = text + make_readable(res)
+        if len(text) == len('Конечно, вот расписание: '):
+            text = 'У тебя нет пар'
         return self.make_response(text=text)
     
     def handle_local_intents(self, request):
@@ -477,6 +481,8 @@ class FindScheduleStudent(Welcome):
             res = find_by_week_day_lesson_student(pool, True, id_group, id_student, week_day)
             res.extend(find_by_week_day_lesson_student(pool, False, id_group, id_student, week_day))
         text = text + make_readable(res)
+        if len(text) == len('Конечно, вот расписание: '):
+            text = 'У тебя нет пар'
         return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
@@ -509,6 +515,8 @@ class FindScheduleLecturer(Welcome):
             res = find_lesson_lecturer(pool, 'GroupLesson', search_attr_name, search_attr_val, id_lecturer)
             res.extend(find_lesson_lecturer(pool, 'PersonalLesson', search_attr_name, search_attr_val, id_lecturer))
         text = text + make_readable(res)
+        if len(text) == len('Конечно, вот расписание: '):
+            text = 'У тебя нет пар'
         return self.make_response(text=text)
 
     def handle_local_intents(self, request: Request):
