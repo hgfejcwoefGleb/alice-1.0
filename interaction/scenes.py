@@ -301,27 +301,36 @@ class ChangeUserData(Welcome):
         text = "Что ты хочешь поменять? Фамилию, имя, отчество номер группы или все в целом?"
         return self.make_response(text=text)
 
+
     def handle_local_intents(self, request: Request):
         return EnterNewData()
 
 
 class EnterNewData(ChangeUserData):
+
     def reply(self, request: Request, pool):
         text = "Хорошо, я поняла, сейчас сделаем. Назови свои новые данные."
         #только для теста user_state_update={"is_student": "лектор"
-        return self.make_response(text=text, user_state_update={"is_student": "лектор"})
+        change_attr = "all"
+        if intents.CHANGE_ALL_DATA in request.intents:
+            change_attr = "all"
+        elif intents.CHANGE_NAME in request.intents:
+            change_attr = "name"
+        elif intents.CHANGE_SURNAME in request.intents:
+            change_attr = "surname"
+        elif intents.CHANGE_FATHER_NAME in request.intents:
+            change_attr = "father_name"
+        elif intents.CHANGE_GROUP in request.intents:
+            change_attr = "group"
+        return self.make_response(text=text, user_state_update={'change_attr': change_attr})
+        
 
     def handle_local_intents(self, request: Request):
-        # if intents.CHANGE_ALL_DATA in request.intents:
-        # return ChangeAllData()
-        # elif intents.CHANGE_NAME in request.intents:
-        #return ChangeOneAttr('name')
-    # elif intents.CHANGE_SURNAME in request.intents:
-        #return ChangeOneAttr('surname')
-    # elif intents.CHANGE_FATHER_NAME in request.intents:
-        #return ChangeOneAttr('father_name')
-    # elif intents.CHANGE_GROUP in request.intents:
-        return ChangeOneAttr('group')
+        change_attr = request['state']['user']['change_attr']
+        if change_attr == 'all':
+            return ChangeAllData()
+        else:
+            return ChangeOneAttr()
 
 
 # написать отдельно для препода
@@ -336,22 +345,20 @@ class ChangeAllData(ChangeUserData):
         pass
 
 
-class ChangeOneAttr(ChangeUserData):
-    def __init__(self, change_attr=None):
-        self.change_attr = change_attr
+class ChangeOneAttr(ChangeUserData):      
+    def reply(self, request: Request, pool):
         self.attr_dict = {
-            'name': 0,
-            'surname': 1,
+            'surname': 0,
+            'name': 1,
             'father_name': 2,
             'group': 3
         }
-
-    def reply(self, request: Request, pool):
+        change_attr = request['state']['user']['change_attr']
         new_name = request['request']['command']
         text = 'Хорошо, теперь запомнила твои новые данные!'
         old_data = request['state']['user']['user_data']
         new_data = old_data.split()
-        new_data[self.attr_dict[self.change_attr]] = new_name
+        new_data[self.attr_dict[change_attr]] = new_name
         new_data = " ".join(new_data)
         change_db_data(pool, old_data, new_data)
         return self.make_response(text=text, user_state_update={'user_data': new_data})
@@ -622,7 +629,7 @@ class AddLesson(Welcome):
             lesson_data = [lesson_data[0], lesson_data[1], lesson_data[3], lesson_data[4], 0, "".join(lesson_data[9:11]) + "".join(lesson_data[11:12]), True, True, lesson_data[-1], last_elem]
         else:
             
-            lesson_data = ["".join(lesson_data[0:diff + 1]), lesson_data[1 + diff], lesson_data[3 + diff], lesson_data[4 + diff], 0, "".join(lesson_data[9+diff:11+diff]) + "".join(lesson_data[11+diff:12+diff]), True, True, lesson_data[-1], last_elem]
+            lesson_data = [" ".join(lesson_data[0:diff + 1]), lesson_data[1 + diff], lesson_data[3 + diff], lesson_data[4 + diff], 0, "".join(lesson_data[9+diff:11+diff]) + "".join(lesson_data[11+diff:12+diff]), True, True, lesson_data[-1], last_elem]
 
         #name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date
         #Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025
@@ -671,7 +678,16 @@ class GetHelpFindSch(GetHelpInGeneral):
 
 
 class GetHelpChangeData(GetHelpInGeneral):
-    pass
+    def reply(self, request, pool):
+        text = ('Если хочешь изменить что-то одно, то напиши:'
+                '"Изменить фамилию/имя/отчество/номер группы" или'
+                'можно изменить все данные, сказав: "Измени все"'
+                'Когда я попрошу назвать новые данные, то назоваи только новые данные:'
+                '"Иванов", "Валерий", "Иванов Валерий Евпатиевич 22УБ3"'
+                )
+        return self.make_response(text=text)
+    def handle_local_intents(self, request):
+        pass
 
 
 class GetHelpChangeSch(GetHelpInGeneral):
