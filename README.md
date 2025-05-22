@@ -43,6 +43,7 @@ alice-1.0/
 ├── handler.py            # Главный обработчик
 └── requirements.txt      # Зависимости
 
+````
 📝 Примеры использования
 Типовые запросы:
 "Какие пары сегодня?"
@@ -60,6 +61,7 @@ Schedule - работа с расписанием
 
 Работа с YDB:
 
+```
 python
 # Пример запроса
 def find_lesson_student(pool, is_group, attr_name, attr_val, group_id, student_id):
@@ -69,3 +71,4 @@ def find_lesson_student(pool, is_group, attr_name, attr_val, group_id, student_i
     AND group_id = {group_id}
     """
     return pool.retry_operation_sync(lambda s: s.transaction().execute(query))
+```
