@@ -1,4 +1,3 @@
-from nntplib import GroupInfo
 
 import Registration as R
 from pythonProject.Registration import *

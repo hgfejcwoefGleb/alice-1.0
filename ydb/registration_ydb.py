@@ -1,31 +1,32 @@
-
-
 from models import *
 from obj_queries import *
+
 import ydb
 
-def registration_user(user_data: list, pool: ydb.QuerySessionPool, is_student=True, group_data: list= None):
+
+def registration_user(
+    user_data: list,
+    pool: ydb.QuerySessionPool,
+    is_student=True,
+    group_data: list = None,
+):
     """Регистрирует пользователя и группу в БД."""
     if is_student:
         group = Group(*group_data)
         student = Student(*user_data)
-        # Проверяем, существует ли группа
         if not is_group_reg(pool, group):
-            # Если группы нет, добавляем её
             reg_group(pool, group)
-            #тут потенциально о
             student.id_group = select_id_group(pool, group)
-            # Получаем id новой группы
         if not is_student_reg(pool, student):
             reg_student(pool, student, student.id_group)
         else:
-            return -1  #пользователь зарегистрирован
+            return -1  
     else:
         lecturer = Lecturer(*user_data)
         if not is_lecturer_reg(pool, lecturer):
             reg_lecturer(pool, lecturer)
         else:
-            return -1 #пользователь зарегистрирован
+            return -1  
 
 
 def reg_group(pool: ydb.QuerySessionPool, group: Group) -> None:
@@ -42,12 +43,12 @@ def reg_group(pool: ydb.QuerySessionPool, group: Group) -> None:
         VALUES ($name, $edu_year, $edu_program, $faculty, $edu_format, $edu_level);
         """,
         {
-            '$name': group.name,
-            '$edu_year': group.edu_year,
-            '$edu_program': group.edu_program,
-            '$faculty': group.faculty,
-            '$edu_format': group.edu_format,
-            '$edu_level': group.edu_level
+            "$name": group.name,
+            "$edu_year": group.edu_year,
+            "$edu_program": group.edu_program,
+            "$faculty": group.faculty,
+            "$edu_format": group.edu_format,
+            "$edu_level": group.edu_level,
         },
     )
 
@@ -64,11 +65,10 @@ def reg_student(pool: ydb.QuerySessionPool, student: Student, id_group: int) -> 
         VALUES ($name, $surname, $father_name, $id_group);
         """,
         {
-            '$name': student.name,
-            '$surname': student.surname,
-            '$father_name': student.father_name,
-            '$id_group': (id_group, ydb.PrimitiveType.Int64),
-
+            "$name": student.name,
+            "$surname": student.surname,
+            "$father_name": student.father_name,
+            "$id_group": (id_group, ydb.PrimitiveType.Int64),
         },
     )
 
@@ -84,9 +84,8 @@ def reg_lecturer(pool: ydb.QuerySessionPool, lecturer: Lecturer) -> None:
         VALUES ($name, $surname, $father_name);
         """,
         {
-            '$name': lecturer.name,
-            '$surname': lecturer.surname,
-            '$father_name': lecturer.father_name,
+            "$name": lecturer.name,
+            "$surname": lecturer.surname,
+            "$father_name": lecturer.father_name,
         },
     )
-

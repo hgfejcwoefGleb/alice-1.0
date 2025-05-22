@@ -1,10 +1,12 @@
 #дописать необязательные аргументы
 import os
+from datetime import datetime
+
+import input_output_lesson_ydb as ioy
+import registration_ydb as r
 import ydb
 import ydb.iam
-import registration_ydb as r
-import input_output_lesson_ydb as ioy
-from datetime import datetime
+
 # Create driver in global space.
 
 driver = ydb.Driver(

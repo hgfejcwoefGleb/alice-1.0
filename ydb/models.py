@@ -1,6 +1,17 @@
 class Lesson:
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date):
-        # Общие атрибуты для всех уроков
+    def __init__(
+        self,
+        name,
+        type_l,
+        building,
+        auditorium,
+        id_lecturer,
+        time,
+        is_weekly,
+        is_upper,
+        lesson_date,
+    ):
+
         self.name = name
         self.type_l = type_l
         self.building = building
@@ -13,36 +24,78 @@ class Lesson:
 
 
 class PersonalLesson(Lesson):
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
-                 id_student):
-        # Вызываем конструктор родительского класса для инициализации общих атрибутов
-        super().__init__(name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date)
-        # Уникальный атрибут для PersonalLesson
+    def __init__(
+        self,
+        name,
+        type_l,
+        building,
+        auditorium,
+        id_lecturer,
+        time,
+        is_weekly,
+        is_upper,
+        lesson_date,
+        id_student,
+    ):
+        super().__init__(
+            name,
+            type_l,
+            building,
+            auditorium,
+            id_lecturer,
+            time,
+            is_weekly,
+            is_upper,
+            lesson_date,
+        )
         self.id_student = int(id_student)
 
 
 class GroupLesson(Lesson):
-    def __init__(self, name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date,
-                 id_group):
-        # Вызываем конструктор родительского класса для инициализации общих атрибутов
-        super().__init__(name, type_l, building, auditorium, id_lecturer, time, is_weekly, is_upper, lesson_date)
-        # Уникальный атрибут для GroupLesson
+    def __init__(
+        self,
+        name,
+        type_l,
+        building,
+        auditorium,
+        id_lecturer,
+        time,
+        is_weekly,
+        is_upper,
+        lesson_date,
+        id_group,
+    ):
+        super().__init__(
+            name,
+            type_l,
+            building,
+            auditorium,
+            id_lecturer,
+            time,
+            is_weekly,
+            is_upper,
+            lesson_date,
+        )
         self.id_group = int(id_group)
 
 
 class Group:
-    def __init__(self, name, edu_year, edu_program=None, faculty=None, edu_format=None, edu_level=None):
-        # print(name, edu_year, edu_program, faculty, edu_format, edu_level)
+    def __init__(
+        self,
+        name,
+        edu_year,
+        edu_program=None,
+        faculty=None,
+        edu_format=None,
+        edu_level=None,
+    ):
         self.name = name
         self.edu_year = str(edu_year)
         self.edu_program = edu_program
         self.faculty = faculty
         self.edu_format = edu_format
         self.edu_level = edu_level
-        # cur.execute('INSERT INTO "Group" (name, edu_year, edu_program, faculty, edu_format, edu_level) '
-        # 'VALUES (%s, %s, %s, %s, %s, %s);', list(vars(self).values())) #??????????
-        # cur.execute("""INSERT INTO "Group" (name, edu_year, edu_program, faculty, edu_format, edu_level)
-        # VALUES (2, 2, 2, 2, 2, 2);""")
+
 
 
 class Student:
