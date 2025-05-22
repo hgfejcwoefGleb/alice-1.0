@@ -1,2 +1,2 @@
-STATE_REQUEST_KEY = 'session'
-STATE_RESPONSE_KEY = 'session_state'
+STATE_REQUEST_KEY = "session"
+STATE_RESPONSE_KEY = "session_state"

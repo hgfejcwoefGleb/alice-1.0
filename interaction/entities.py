@@ -1,1 +1,1 @@
-USER_TYPE = 'user_type'
+USER_TYPE = "user_type"
