@@ -1,0 +1,22 @@
+root:
+    [$group_lesson]
+    [$personal_lesson]
+
+slots:
+    group_lesson:
+        source: $group_lesson
+    personal_lesson:
+        source: $personal_lesson
+
+$group_lesson:
+    %lemma
+    групповой
+    связаны
+    [только для нашей ОП]
+
+$personal_lesson:
+    %lemma
+    индивидуальный
+    факультатив
+    английский
+    майнор

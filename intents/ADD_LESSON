@@ -1,0 +1,55 @@
+root:  
+    [$Alice? $AddCommand $Subject]  
+    [$Alice? $AddCommand $Subject $ToSemester]  
+    [$Alice? $AddCommand $Subject $ToMe]  
+    [$Alice? $AddCommand $Subject $ToStudy]   
+  
+$Alice:  
+    %lemma  
+    Алиса  
+    Яндекс  
+    Окей Яндекс 
+$AddCommand:  
+    %lemma  
+    добавь  
+    внеси  
+    включи  
+    зарегистрируй  
+    запиши  
+    укажи  
+    создай  
+    открой добавление  
+    хочу добавить  
+    мне нужен  
+    давай добавим  
+$Subject:  
+    %lemma  
+    предмет  
+    дисциплина  
+    курс  
+    учебный курс  
+    пара  
+    урок  
+    занятие  
+    модуль  
+    лабораторная  
+    экзамен  
+    зачёт 
+$ToSemester: 
+    %lemma
+    в этот семестр  
+    на этот год  
+    в зимнюю сессию  
+    в летнюю сессию  
+
+$ToMe: 
+    %lemma 
+    мне  
+    в моё расписание  
+    в мой план  
+
+$ToStudy:
+    %lemma  
+    для изучения  
+    в учебный план  
+    в программу

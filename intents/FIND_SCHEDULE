@@ -1,0 +1,282 @@
+root:
+    [$Assistant? $ScheduleCommand $TodayTrigger]
+    [$Assistant? $ScheduleCommand $TomorrowTrigger]
+    [$Assistant? $ScheduleCommand $DayPart $TodayTrigger]
+    [$Assistant? $ScheduleCommand $DayPart $TomorrowTrigger]
+    [$Assistant? $What $ScheduleCommand $TodayTrigger]
+    [$Assistant? $What $ScheduleCommand $TomorrowTrigger]
+    [$Assistant? $Tell $ScheduleCommand $TodayTrigger]
+    [$Assistant? $Tell $ScheduleCommand $TomorrowTrigger]
+    [$Assistant? $Show $ScheduleCommand $TodayTrigger]
+    [$Assistant? $Show $ScheduleCommand $TomorrowTrigger]
+    [$My $ScheduleCommand $TodayTrigger]
+    [$My $ScheduleCommand $TomorrowTrigger]
+    [$Assistant? $What $ScheduleCommand $ByDate]
+    [$Assistant? $What $ScheduleCommand $Week_day]
+    [$Assistant? $Show $ByDate]
+    [$Assistant? $ScheduleCommand $ByLecturer]
+    [$Assistant? $ScheduleCommand $BySubject]
+    [$Assistant? $When $ScheduleCommand $ByLecturer]
+    [$Assistant? $When $SubjectName]
+    [$Assistant? $When $SubjectName $ByDate]
+    [$Assistant? $LecturerSchedule $ByDate]
+    [$Assistant? $LecturerSchedule $BySubject]
+    [$Assistant? $FindCommand $SubjectName $ByLecturer]
+    [$Assistant? $FindCommand $SubjectName $ByDate]
+
+slots:
+    today:
+        source: $TodayTrigger
+    tomorrow:
+        source: $TomorrowTrigger
+    lesson_date:
+        source: $Date
+        type: YANDEX.DATETIME
+    week_day:
+        source: $Week_day
+        type: WeekDay
+    id_lecturer:
+        source: $LecturerFullName
+        type: YANDEX.FIO
+
+$Week_day:
+    $WeekDay
+
+$ByDate:
+    [$DatePrefix $Date]
+    [$DatePrefix $Week_day]
+    [$Date]
+
+$ByLecturer:
+    [$LecturerPrefix $LecturerFullName]
+    [$LecturerPrefix $LecturerPosition $LecturerFullName]
+    [$LecturerFullName $LecturerSuffix]
+
+$BySubject:
+    [$SubjectPrefix $SubjectName]
+    [$SubjectName $SubjectSuffix]
+    [$SubjectType $SubjectName]
+
+$DatePrefix:
+    %lemma
+    на
+    для
+    по
+    в
+    за
+    числа
+    от
+
+$Date:
+    дата
+    $YANDEX.DATETIME
+
+$LecturerPrefix:
+    %lemma
+    у
+    с
+    у лектора
+    у преподавателя
+    у профессора
+    у доцента
+    у ассистента
+    преподаватель
+    лектор
+    профессор
+    доцент
+
+$LecturerFullName:
+    $YANDEX.FIO
+
+$LecturerPosition:
+    %lemma
+    профессор
+    доцент
+    ассистент
+    преподаватель
+    лектор
+    доктор
+    кандидат
+
+$LecturerSuffix:
+    %lemma
+    ведет
+    преподает
+    проводит
+    читает
+    будет
+    есть пары
+
+$SubjectPrefix:
+    %lemma
+    по
+    предмет
+    дисциплина
+    курс
+    пара
+    занятие
+    модуль
+
+$SubjectName:
+    предмет
+    #добавить сущность предмет
+
+$SubjectSuffix:
+    %lemma
+    будет
+    есть
+    проходит
+    проводится
+    назначена
+    запланирована
+
+$SubjectType:
+    %lemma
+    лекция
+    семинар
+    практика
+    лабораторная
+    консультация
+    экзамен
+    зачет
+
+$When:
+    %lemma
+    когда
+    в какое время
+    во сколько
+    где будет
+    где проходит
+
+$FindCommand:
+    %lemma
+    найди
+    найти
+    поищи
+    покажи
+    выведи
+    открой
+    ищи
+
+$CheckCommand:
+    %lemma
+    проверь
+    есть ли
+    будет ли
+    запланирована ли
+    проводится ли
+
+$LecturerSchedule:
+    %lemma
+    расписание преподавателя
+    пары преподавателя
+    занятия лектора
+    когда у преподавателя
+    график профессора
+
+$Assistant:
+    %lemma
+    Алиса
+    Яндекс
+    Окей Яндекс
+    Ась
+    Вышка
+    Расписание
+    Эй
+
+$ScheduleCommand:
+    %lemma
+    расписание
+    пары
+    занятия
+    пары
+    пары на
+    что по расписанию
+    что в расписании
+    что там по учебе
+    что по парам
+    какие пары
+    какие занятия
+    учебный план
+    расписание пар
+    расписание занятий
+    что в учебном плане
+
+$TodayTrigger:
+    %lemma
+    сегодня
+    на сегодня
+    седня
+    на седня
+    в этот день
+    на текущий день
+    на сейчас
+    на день
+    на сегодняшний день
+
+$TomorrowTrigger:
+    %lemma
+    завтра
+    на завтра
+    завтрака
+    на завтрака
+    на следующий день
+    на завтрашний день
+    на след день
+    на день грядущий
+
+$DayPart:
+    %lemma
+    утренние
+    дневные
+    вечерние
+    первые
+    вторые
+    все
+    целый день
+    полный день
+    на весь день
+    на полный день
+
+$What:
+    %lemma
+    что
+    какие
+    скажи
+    расскажи
+    перечисли
+    назови
+    озвучь
+    дай
+    покажи
+
+$Tell:
+    %lemma
+    расскажи
+    сообщи
+    доложи
+    проинформируй
+    извести
+    поведай
+    поделись
+
+$Show:
+    %lemma
+    какие
+    покажи
+    выведи
+    открой
+    продемонстрируй
+    отобрази
+    визуализируй
+
+$My:
+    %lemma
+    мои
+    мое
+    мой
+    моё
+    у меня
+    для меня
+    в моем
+    в моём
