@@ -67,3 +67,6 @@ def find_lesson_student(pool, is_group, attr_name, attr_val, group_id, student_i
     """
     return pool.retry_operation_sync(lambda s: s.transaction().execute(query))
 ```
+**Запуск**
+
+Просто необходимо сказать Алисе: "Запусти навык пары в Вышке"
