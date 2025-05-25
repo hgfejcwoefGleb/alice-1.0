@@ -12,7 +12,7 @@ from utils import make_readable
 
 from registration_ydb import *
 from registration_ydb import select_id_student
-
+from news_title import news_title
 
 class Scene(ABC):
 
@@ -50,7 +50,7 @@ class Scene(ABC):
 
     def fallback(self, request: Request):
         return self.make_response(
-            text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею"
+            text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею."
         )
 
     def make_response(
@@ -118,6 +118,8 @@ class Welcome(Scene):
                 return InsertGroupData()
             else:
                 return IsStudent()
+        elif intents.START_NEWS in request.intents:
+            return StartNews()
         elif intents.FIND_SCHEDULE_LESSON_NAME in request.intents:
             return FindScheduleLessonName()
         elif intents.FIND_SCHEDULE in request.intents and is_student(request):
@@ -140,15 +142,18 @@ class Welcome(Scene):
             return GetHelpChangeSch()
         elif intents.GET_HELP_ADD_SCH in request.intents:
             return GetHelpAddSch()
+        elif intents.GET_HELP_NEWS in request.intents:
+            return GetHelpNews()
+        
 
     def handle_local_intents(self, request: Request):
         pass
 
     def reply(self, request: Request, pool):
         text = (
-            "Привет! Я могу помочь с расписанием студентов Вышки."
+            "Привет! Я могу помочь с расписанием студентов Вышки. "
             "Ты хочешь узнать своё расписание на сегодня, завтра или найти пару по названию? "
-            "Если хочешь узнать, что я умею, попроси справку, сказав: Алиса, покажи справку"
+            "Если хочешь узнать, что я умею, попроси справку, сказав: Алиса, покажи справку."
         )
         return self.make_response(
             text=text,
@@ -177,7 +182,7 @@ class ResetData(Welcome):
 class Fallback(Welcome):
     def reply(self, request, pool):
         return self.make_response(
-            text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею",
+            text="Извини, я не поняла твою просьбу. Переформулируй запрос или уточни, что я умею. ",
             buttons=[
                 {"title": "Добавь предмет", "hide": True},
                 {"title": "Поменять данные", "hide": True},
@@ -221,7 +226,7 @@ class IsStudent(Registration):
         text = (
             "Отлично, теперь расскажи про себя. "
             "Как тебя зовут? Назови свои ФИО "
-            "Если ты студент, то назови еще номер группы"
+            "Если ты студент, то назови еще номер группы "
             'Только в формате: "Иванов Иван Иванович 22БИ3"'
         )
         return self.make_response(
@@ -334,16 +339,17 @@ class GetHelpInGeneral(Welcome):
 
     def reply(self, request: Request, pool):
         text = (
-            "Привет, я помогу узнать расписание твоих дисциплин "
-            "Например, если ты хочешь узнать расписание по философии, то"
-            'скажи: "Алиса когда у меня философия" или: Алиса, что у меня во вторник?.'
+            "Привет, я помогу узнать расписание твоих дисциплин. "
+            "Например, если ты хочешь узнать расписание по философии, то "
+            'скажи: "Алиса когда у меня философия" или: Алиса, что у меня во вторник?. '
             " Я могу подсказать расписание на конкретную дату, день недели "
             "или у нужного преподавателя. Если хочешь узнать, когда у тебя пара "
             "с преподавателем, скажите, когда у меня пара с Владимиром Владимировым Владимиряном? "
             "Главное, чтобы фамилия была правильной. Чтобы поменять данные, "
             "скажи: хочу поменять данные. Чтобы добавить пару, скажи: "
-            '"Алиса, добавь пару". Чтобы получить справку по конкретной функции:'
-            '"Алиса, как мне изменить данные/зарегистрироваться/найти расписание/изменить расписание/добавить расписание"'
+            '"Алиса, добавь пару". Чтобы получить справку по конкретной функции: '
+            '"Алиса, как мне изменить данные/зарегистрироваться/найти расписание/изменить расписание/добавить расписание/посмотреть новости"'
+
         )
         return self.make_response(
             text=text, buttons=[{"title": "Добавь предмет", "hide": True}]
@@ -911,9 +917,9 @@ class GetHelpReg(GetHelpInGeneral):
         text = (
             "1.Когда я спрошу студент ли ты? Просто ответь: 'Я студент' или 'Я преподаватель'"
             "2.Когда захочу узнать про ФИО и номер группы, то если ты студент напиши: "
-            "'Валерий Иванов Евгеньевич 22БИ3', группу указывай именно в таком формате, а не"
-            "просто число"
-            "3.Когда захочу подробнее узнать про тебя, если ты студент, то напиши:"
+            "'Валерий Иванов Евгеньевич 22БИ3', группу указывай именно в таком формате, а не "
+            "просто число "
+            "3.Когда захочу подробнее узнать про тебя, если ты студент, то напиши: "
             "2022 Бизнес-информатика Информатики математики и компьютерных наук очный бакалавриат"
         )
         return self.make_response(text=text)
@@ -925,10 +931,10 @@ class GetHelpReg(GetHelpInGeneral):
 class GetHelpFindSch(GetHelpInGeneral):
     def reply(self, request, pool):
         text = (
-            '1.Чтобы найти пары на сегодня/завтра спроси: "Алиса, какие пары сегодня/завтра?"'
-            '2.Чтобы найти пары на день недели: "Какие пары во вторник?"'
-            '3.Чтобы найти пары на конкретную дату: "Какие пары 21 апреля?"'
-            '4.Чтобы узнать пары у конкретного препода: "Когда пары с Ивановым Иваном Ивановичем?"'
+            '1.Чтобы найти пары на сегодня/завтра спроси: "Алиса, какие пары сегодня/завтра?" '
+            '2.Чтобы найти пары на день недели: "Какие пары во вторник?" '
+            '3.Чтобы найти пары на конкретную дату: "Какие пары 21 апреля?" ' 
+            '4.Чтобы узнать пары у конкретного препода: "Когда пары с Ивановым Иваном Ивановичем?" '
             "5.Чтобы узнать пары по названию предмета: Хочу узнать когда у меня конкретный предмет"
             'Когда я спрошу название предмета, то напиши его так, как указывал придобавлении: "Матанализ"'
         )
@@ -938,11 +944,11 @@ class GetHelpFindSch(GetHelpInGeneral):
 class GetHelpChangeData(GetHelpInGeneral):
     def reply(self, request, pool):
         text = (
-            'Чтобы изменить данные скажи, "Хочу поменять данные"'
-            "Если хочешь изменить что-то одно, то напиши:"
+            'Чтобы изменить данные скажи, "Хочу поменять данные" '
+            "Если хочешь изменить что-то одно, то напиши: "
             '"Изменить фамилию/имя/отчество/номер группы" или'
-            'можно изменить все данные, сказав: "Измени все"'
-            "Когда я попрошу назвать новые данные, то назоваи только новые данные:"
+            'можно изменить все данные, сказав: "Измени все" '
+            "Когда я попрошу назвать новые данные, то назоваи только новые данные: "
             '"Иванов", "Валерий", "Иванов Валерий Евпатиевич 22УБ3"'
         )
         return self.make_response(text=text)
@@ -961,14 +967,74 @@ class GetHelpAddSch(GetHelpInGeneral):
         text = (
             "1.Когда я спрошу про то, связаны ли предметы с твоей ОП или это майнор,"
             'английский и тп, то просто ответь: "Групповой", если предмет связан с ОП'
-            'или "Индивидуальный"'
-            "2.Когда я попрошу указать все про предмет, то укажи его данные так:"
+            'или "Индивидуальный" '
+            "2.Когда я попрошу указать все про предмет, то укажи его данные так: "
             '"Матанализ семинар корпус Родионова 303 аудитория Петренко Петр Петрович 12:00-13:20 12.04.2025"'
         )
         return self.make_response(text=text)
 
     def handle_local_intents(self, request):
         pass
+
+class GetHelpNews(GetHelpInGeneral):
+    def reply(self, request, pool):
+        pass
+
+    def handle_local_intents(self, request):
+        pass
+
+class StartNews(Welcome):
+    def reply(self, request, pool):
+        text = "Привет! Я расскажу тебе о последних новостях Высшей Школы Экономики"
+        one = "Давай определимся по какой рубрике ты хочешь узнать новость."
+        two = "1.Поступающим, 2.Образование, 3.Наука, 4.Экспертиза, 5.Общество, 6.Свободное общение, 7.Университетская жизнь, 8.Приоритет 2030, 9.Программа развития 2030, 10.Все новости"
+        three = "Скажи, пожалуйста, название выбранной рубрики:"
+        text +=  f'{one} \n{two} \n{three}'
+        return self.make_response(text=text)
+
+    def handle_local_intents(self, request):
+        return Headings()
+
+class Headings(Welcome):
+    def reply(self, request, pool):
+        if intents.NEWS_TITLE in request.intents:
+            type_chose = request.intents[intents.NEWS_TITLE]["slots"]['rubrics']['value']
+        else:
+            type_chose = request["state"]["user"]["type_chose"]
+        headings_t, headings_l, subs, number_of_news = news_title(type_chose) # сказал название конкретной рубрики
+
+        TEXT4 = "Отлично! Показываю тебе названия последних заголовков новостей по выбранной рубрике:"
+        headings = ''
+        for i in range(len(headings_t)):
+            headings += str(i + 1) + '. ' + str(headings_t[i]) + '\n'
+        TEXT4 += '\n' + headings + "\n" + 'Назови цифру новости, которую хочешь прочитать: ' #выводим пользователю (Тут в интентах надо добавить цифру от 1 до 7)
+        return self.make_response(text = TEXT4, user_state_update = {'headings_t': headings_t, 'headings_l': headings_l, 'subs': subs, 'type_chose': type_chose, 'number_of_news': number_of_news})
+
+
+    def handle_local_intents(self, request):
+        return ResNews()
+
+class ResNews(Welcome):
+    def reply(self, request, pool):
+        title_chose = request.intents[intents.RES_NEWS]['slots']['number']['value']
+        headings_t = request["state"]["user"]['headings_t']
+        headings_l = request["state"]["user"]['headings_l']
+        subs = request["state"]["user"]['subs']
+        number_of_news = request["state"]["user"]['number_of_news']
+        if title_chose < 1 or title_chose > number_of_news:
+            return self.make_response("Новости под такой цифрой нет. Назови, пожалуйста, цифру из тех, которые есть.")
+        res_link = headings_l[title_chose - 1]
+        title = headings_t[title_chose - 1]
+        sub = subs[title_chose - 1]
+        TEXT5 = f'Отлично! Показываю новость: \n{title}: \n{sub} \nТакже даю ссылку, если хочешь ознакомиться с новостью подробнее и посмотреть картинки: {res_link} \nЕсли хочешь посмотреть еще другую новость, скажи "Хочу посмотреть другую новость"'
+        return self.make_response(TEXT5)
+
+    def handle_local_intents(self, request):
+        if intents.CONTIN_NEWS in request.intents:
+            return StartNews()
+
+
+
 
 
 SCENES = {
@@ -1003,6 +1069,9 @@ SCENES = {
         GetHelpChangeSch,
         GetHelpAddSch,
         ResetData,
+        StartNews,
+        Headings,
+        ResNews
     ]
 }
 
